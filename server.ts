@@ -70,9 +70,12 @@ async function startServer() {
     }
 
     try {
+      console.log("Attempting to get admin user:", adminUid);
       // 1. Verify the requester is an admin
       const adminSnap = await db.collection("users").doc(adminUid).get();
+      console.log("Admin snap exists:", adminSnap.exists);
       if (!adminSnap.exists || adminSnap.data()?.role !== "admin") {
+        console.log("Admin check failed. Exists:", adminSnap.exists, "Data:", adminSnap.data());
         return res.status(403).json({ error: "Unauthorized" });
       }
 

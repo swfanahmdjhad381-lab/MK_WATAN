@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { auth, db, handleRedirectResult } from './firebase';
+import { auth, db } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { Login } from './components/Login';
@@ -21,10 +21,6 @@ export default function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showVideos, setShowVideos] = useState(false);
-
-  useEffect(() => {
-    handleRedirectResult().catch(console.error);
-  }, []);
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
