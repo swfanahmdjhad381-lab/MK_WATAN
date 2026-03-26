@@ -17,6 +17,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  const loadAllUsers = async () => {
+    setLoading(true);
+    setSearchTerm('');
+    try {
+      const q = query(collection(db, 'users'), limit(500));
+      const snapshot = await getDocs(q);
+      const results = snapshot.docs.map(doc => doc.data() as UserProfile);
+      setUsers(results);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'users');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAllUsers();
+  }, []);
+
   const searchUsers = async () => {
     const term = searchTerm.trim().toLowerCase().replace('@', '');
     if (!term) return;
@@ -134,13 +153,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
           {/* Search Section */}
-          <div className="mb-8">
-            <div className="relative group">
+          <div className="mb-8 flex gap-2">
+            <div className="relative group flex-1">
               <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-red-500 transition-colors" size={20} />
               <input
                 type="text"
                 placeholder="البحث عن مستخدم باليوزر نيم..."
-                className="w-full pr-12 pl-4 py-4 bg-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500 text-right font-bold transition-all"
+                className="w-full pr-12 pl-20 py-4 bg-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500 text-right font-bold transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && searchUsers()}
@@ -152,6 +171,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 بحث
               </button>
             </div>
+            <button 
+              onClick={loadAllUsers}
+              className="px-4 py-4 bg-gray-100 text-gray-700 rounded-2xl text-sm font-bold hover:bg-gray-200 transition-colors flex-shrink-0"
+            >
+              عرض الكل
+            </button>
           </div>
 
           {/* Results / Selected User */}
