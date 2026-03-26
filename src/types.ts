@@ -9,6 +9,12 @@ export interface UserProfile {
   lastSeen?: string;
   role?: 'admin' | 'moderator' | 'user';
   isPremium?: boolean;
+  premiumFeatures?: {
+    canSetVideoAsPhoto: boolean;
+    canUseAnimatedStickers: boolean;
+    canUseAdvancedThemes: boolean;
+    canHideLastSeen: boolean;
+  };
   bio?: string;
   phoneNumber?: string;
   twoStepEnabled?: boolean;

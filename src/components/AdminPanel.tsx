@@ -5,6 +5,7 @@ import { UserProfile, OperationType } from '../types';
 import { handleFirestoreError } from '../lib/firestore-utils';
 import { X, Shield, Search, Ban, MicOff, Trash2, User, Check, AlertTriangle, Smartphone, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { PremiumFeaturesList } from './PremiumFeaturesList';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -90,11 +91,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const handleTogglePremium = async (user: UserProfile) => {
     setActionLoading(true);
     try {
+      const newPremiumStatus = !user.isPremium;
       await updateDoc(doc(db, 'users', user.uid), {
-        isPremium: !user.isPremium
+        isPremium: newPremiumStatus,
+        premiumFeatures: newPremiumStatus ? {
+          canSetVideoAsPhoto: true,
+          canUseAnimatedStickers: true,
+          canUseAdvancedThemes: true,
+          canHideLastSeen: true,
+        } : null
       });
-      setSelectedUser(prev => prev ? { ...prev, isPremium: !prev.isPremium } : null);
-      setUsers(prev => prev.map(u => u.uid === user.uid ? { ...u, isPremium: !u.isPremium } : u));
+      setSelectedUser(prev => prev ? { ...prev, isPremium: newPremiumStatus, premiumFeatures: newPremiumStatus ? {
+          canSetVideoAsPhoto: true,
+          canUseAnimatedStickers: true,
+          canUseAdvancedThemes: true,
+          canHideLastSeen: true,
+        } : undefined } : null);
+      setUsers(prev => prev.map(u => u.uid === user.uid ? { ...u, isPremium: newPremiumStatus, premiumFeatures: newPremiumStatus ? {
+          canSetVideoAsPhoto: true,
+          canUseAnimatedStickers: true,
+          canUseAdvancedThemes: true,
+          canHideLastSeen: true,
+        } : undefined } : u));
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
     } finally {
@@ -333,6 +351,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                     تحذير: الإجراءات المتخذة هنا تؤثر بشكل مباشر على قدرة المستخدم على الوصول للتطبيق. حظر الجهاز يمنع المستخدم من الدخول حتى لو قام بإنشاء حساب جديد.
                   </p>
                 </div>
+
+                <PremiumFeaturesList />
               </motion.div>
             ) : (
               <div className="space-y-2">

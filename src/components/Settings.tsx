@@ -5,6 +5,7 @@ import { UserProfile, OperationType } from '../types';
 import { handleFirestoreError } from '../lib/firestore-utils';
 import { X, Camera, User, Shield, Phone, Info, Check, AtSign, Star } from 'lucide-react';
 import { motion } from 'motion/react';
+import { PremiumFeaturesList } from './PremiumFeaturesList';
 
 interface SettingsProps {
   profile: UserProfile;
@@ -271,20 +272,24 @@ export const Settings: React.FC<SettingsProps> = ({ profile, onClose, onOpenAdmi
                 <p className="text-sm opacity-90">احصل على ميزات حصرية وادعم تطوير التطبيق</p>
               </div>
 
-              <div className="space-y-3">
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-right">
-                  <h4 className="font-bold text-gray-800 mb-1">خطة الشهر - 5$</h4>
-                  <p className="text-xs text-gray-500">فيديو بروفايل + شارة التحقق + ميزات حصرية</p>
+              <PremiumFeaturesList />
+
+              {!profile.isPremium && (
+                <div className="space-y-3">
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-right">
+                    <h4 className="font-bold text-gray-800 mb-1">خطة الشهر - 5$</h4>
+                    <p className="text-xs text-gray-500">فيديو بروفايل + شارة التحقق + ميزات حصرية</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-right">
+                    <h4 className="font-bold text-gray-800 mb-1">خطة السنة - 45$</h4>
+                    <p className="text-xs text-gray-500">وفر 25% واحصل على دعم فني مباشر</p>
+                  </div>
+                  <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-200 text-right">
+                    <h4 className="font-bold text-yellow-800 mb-1">خطة مدى الحياة - 99$</h4>
+                    <p className="text-xs text-yellow-600">ادفع مرة واحدة واستمتع للأبد</p>
+                  </div>
                 </div>
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-right">
-                  <h4 className="font-bold text-gray-800 mb-1">خطة السنة - 45$</h4>
-                  <p className="text-xs text-gray-500">وفر 25% واحصل على دعم فني مباشر</p>
-                </div>
-                <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-200 text-right">
-                  <h4 className="font-bold text-yellow-800 mb-1">خطة مدى الحياة - 99$</h4>
-                  <p className="text-xs text-yellow-600">ادفع مرة واحدة واستمتع للأبد</p>
-                </div>
-              </div>
+              )}
 
               <button
                 onClick={async () => {
@@ -293,8 +298,6 @@ export const Settings: React.FC<SettingsProps> = ({ profile, onClose, onOpenAdmi
                     const snap = await getDocs(q);
                     if (!snap.empty) {
                       const admin = snap.docs[0].data() as UserProfile;
-                      // We need to trigger startChat from here, but Settings doesn't have onSelectChat
-                      // For now, let's just alert or find a way to notify the parent
                       alert('يرجى مراسلة المطور @' + admin.username + ' لتفعيل الاشتراك');
                     }
                   } catch (e) {
@@ -303,7 +306,7 @@ export const Settings: React.FC<SettingsProps> = ({ profile, onClose, onOpenAdmi
                 }}
                 className="w-full py-4 bg-black text-white rounded-2xl font-black hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg"
               >
-                <span>تواصل مع المطور للاشتراك</span>
+                <span>{profile.isPremium ? 'تواصل مع المطور للدعم' : 'تواصل مع المطور للاشتراك'}</span>
                 <AtSign size={20} />
               </button>
             </div>
