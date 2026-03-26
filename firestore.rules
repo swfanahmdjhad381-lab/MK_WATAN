@@ -145,6 +145,7 @@ service cloud.firestore {
              data.senderId == request.auth.uid &&
              data.text is string && data.text.size() >= 0 && data.text.size() < 5000 &&
              data.timestamp is timestamp &&
+             data.type in ['text', 'image', 'file'] &&
              (!('replyTo' in data) || (
                data.replyTo is map &&
                data.replyTo.id is string &&
@@ -153,7 +154,9 @@ service cloud.firestore {
              )) &&
              (!('isEdited' in data) || data.isEdited is bool) &&
              (!('isForwarded' in data) || data.isForwarded is bool) &&
-             (!('forwardedFrom' in data) || data.forwardedFrom is string);
+             (!('forwardedFrom' in data) || data.forwardedFrom is string) &&
+             (!('fileUrl' in data) || (data.fileUrl is string && data.fileUrl.size() < 1000)) &&
+             (!('fileName' in data) || (data.fileName is string && data.fileName.size() < 200));
     }
 
     function isValidVideo(data) {
