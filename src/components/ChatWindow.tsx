@@ -368,7 +368,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
                 @{chat.username}
               </a>
             ) : (
-              <p className="text-xs text-blue-500 font-medium truncate">متصل الآن</p>
+              <p className={`text-xs font-medium truncate ${chat.type === 'private' && members[chat.memberIds.find(id => id !== auth.currentUser?.uid) || '']?.status === 'online' ? 'text-blue-500' : 'text-gray-500'}`}>
+                {chat.type === 'private' 
+                  ? (members[chat.memberIds.find(id => id !== auth.currentUser?.uid) || '']?.status === 'online' 
+                      ? 'متصل الآن' 
+                      : 'كان نشط منذ قليل')
+                  : 'مجموعة'}
+              </p>
             )}
           </div>
         </div>
