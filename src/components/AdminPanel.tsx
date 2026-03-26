@@ -3,7 +3,7 @@ import { db, auth } from '../firebase';
 import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { UserProfile, OperationType } from '../types';
 import { handleFirestoreError } from '../lib/firestore-utils';
-import { X, Shield, Search, Ban, MicOff, Trash2, User, Check, AlertTriangle, Smartphone } from 'lucide-react';
+import { X, Shield, Search, Ban, MicOff, Trash2, User, Check, AlertTriangle, Smartphone, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface AdminPanelProps {
@@ -80,6 +80,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       });
       setSelectedUser(prev => prev ? { ...prev, isMuted: !prev.isMuted } : null);
       setUsers(prev => prev.map(u => u.uid === user.uid ? { ...u, isMuted: !u.isMuted } : u));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleTogglePremium = async (user: UserProfile) => {
+    setActionLoading(true);
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        isPremium: !user.isPremium
+      });
+      setSelectedUser(prev => prev ? { ...prev, isPremium: !prev.isPremium } : null);
+      setUsers(prev => prev.map(u => u.uid === user.uid ? { ...u, isPremium: !u.isPremium } : u));
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
     } finally {
@@ -221,6 +236,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => handleTogglePremium(selectedUser)}
+                    disabled={actionLoading}
+                    className={`p-4 rounded-2xl flex flex-col items-center gap-2 transition-all ${
+                      selectedUser.isPremium 
+                        ? 'bg-yellow-50 text-yellow-600 border border-yellow-200 hover:bg-yellow-100' 
+                        : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Star size={24} className={selectedUser.isPremium ? "fill-yellow-500" : ""} />
+                    <span className="font-bold text-sm">{selectedUser.isPremium ? 'إلغاء الاشتراك المميز' : 'تفعيل الاشتراك المميز'}</span>
+                  </button>
+
                   <button
                     onClick={() => handleToggleBan(selectedUser)}
                     disabled={actionLoading}
