@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Amiri:wght@400;700&family=Tajawal:wght@400;700;900&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -9,6 +9,9 @@
 body {
   font-family: var(--font-sans);
 }
+
+.font-premium-1 { font-family: 'Amiri', serif; }
+.font-premium-2 { font-family: 'Tajawal', sans-serif; }
 
 /* Disable context menu globally */
 * {

@@ -514,7 +514,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
                     </div>
                   )}
 
-                  <p className={`text-sm leading-relaxed text-right whitespace-pre-wrap ${msg.text.startsWith('`') ? 'font-mono bg-black/5 p-2 rounded' : ''} ${(msg as any).isSticker ? 'text-5xl py-2' : ''}`}>
+                  <p className={`text-sm leading-relaxed text-right whitespace-pre-wrap ${msg.text.startsWith('`') ? 'font-mono bg-black/5 p-2 rounded' : ''} ${(msg as any).isSticker ? 'text-5xl py-2' : ''} ${senderProfile?.isPremium ? 'font-premium-1' : ''}`}>
                     {msg.text}
                   </p>
 

@@ -22,6 +22,7 @@ export interface UserProfile {
   isBanned?: boolean;
   isMuted?: boolean;
   isDeviceBanned?: boolean;
+  dataSaver?: boolean;
 }
 
 export interface Video {

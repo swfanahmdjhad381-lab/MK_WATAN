@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { db, auth } from '../firebase';
+import React, { useState, useRef } from 'react';
+import { db, auth, storage } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateDoc, doc, getDoc, setDoc, deleteDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { UserProfile, OperationType } from '../types';
 import { handleFirestoreError } from '../lib/firestore-utils';
-import { X, Camera, User, Shield, Phone, Info, Check, AtSign, Star } from 'lucide-react';
+import { X, Camera, User, Shield, Phone, Info, Check, AtSign, Star, Upload } from 'lucide-react';
 import { motion } from 'motion/react';
 import { PremiumFeaturesList } from './PremiumFeaturesList';
 
@@ -21,9 +22,28 @@ export const Settings: React.FC<SettingsProps> = ({ profile, onClose, onOpenAdmi
   const [bio, setBio] = useState(profile.bio || '');
   const [phoneNumber, setPhoneNumber] = useState(profile.phoneNumber || '');
   const [twoStepEnabled, setTwoStepEnabled] = useState(profile.twoStepEnabled || false);
+  const [dataSaver, setDataSaver] = useState(profile.dataSaver || false);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'premium'>('profile');
   const [usernameError, setUsernameError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !auth.currentUser) return;
+
+    setSaving(true);
+    try {
+      const storageRef = ref(storage, `profilePictures/${auth.currentUser.uid}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setPhotoURL(url);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!auth.currentUser) return;
@@ -65,7 +85,8 @@ export const Settings: React.FC<SettingsProps> = ({ profile, onClose, onOpenAdmi
         videoPhotoURL,
         bio,
         phoneNumber,
-        twoStepEnabled
+        twoStepEnabled,
+        dataSaver
       });
       onClose();
     } catch (error) {
@@ -154,8 +175,18 @@ export const Settings: React.FC<SettingsProps> = ({ profile, onClose, onOpenAdmi
                       referrerPolicy="no-referrer"
                     />
                   )}
-                  <button className="absolute bottom-0 right-0 p-2 bg-[#24a1de] text-white rounded-full shadow-lg hover:bg-[#1e88bc] transition-all">
-                    <Camera size={16} />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                  />
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute bottom-0 right-0 p-2 bg-[#24a1de] text-white rounded-full shadow-lg hover:bg-[#1e88bc] transition-all"
+                  >
+                    <Upload size={16} />
                   </button>
                 </div>
                 <div className="w-full space-y-2 mt-4">
@@ -233,6 +264,28 @@ export const Settings: React.FC<SettingsProps> = ({ profile, onClose, onOpenAdmi
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="+966 50 000 0000"
                   />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <button
+                  onClick={() => setDataSaver(!dataSaver)}
+                  className={`w-12 h-6 rounded-full relative transition-colors ${
+                    dataSaver ? 'bg-green-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <div
+                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                      dataSaver ? 'right-7' : 'right-1'
+                    }`}
+                  />
+                </button>
+                <div className="text-right">
+                  <div className="flex items-center gap-2 justify-end">
+                    <span className="font-bold text-gray-800">توفير البيانات</span>
+                    <Smartphone size={18} className="text-blue-500" />
+                  </div>
+                  <p className="text-xs text-gray-500">تقليل استهلاك البيانات للصور والفيديوهات</p>
                 </div>
               </div>
 
