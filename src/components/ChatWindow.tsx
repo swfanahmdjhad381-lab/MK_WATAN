@@ -25,6 +25,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
   const [showSettings, setShowSettings] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const [chatUsers, setChatUsers] = useState<Record<string, UserProfile>>({});
 
@@ -586,7 +587,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
                     )}
 
                   {msg.type === 'image' && msg.fileUrl && (
-                    <img src={msg.fileUrl} className="w-full rounded-lg mb-2 max-h-60 object-cover cursor-pointer" alt="Sent" />
+                    <img 
+                      src={msg.fileUrl} 
+                      className="w-full rounded-lg mb-2 max-h-60 object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                      alt="Sent" 
+                      onClick={() => setViewingImage(msg.fileUrl!)}
+                    />
                   )}
 
                   {msg.type === 'file' && msg.fileUrl && (
@@ -779,6 +785,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
             message={forwardingMessage} 
             onClose={() => setForwardingMessage(null)} 
           />
+        )}
+        {viewingImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+            onClick={() => setViewingImage(null)}
+          >
+            <img src={viewingImage} className="max-w-full max-h-full object-contain" alt="Full screen" />
+            <button 
+              className="absolute top-4 right-4 text-white p-2 bg-black/50 rounded-full"
+              onClick={() => setViewingImage(null)}
+            >
+              <X size={24} />
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
