@@ -401,11 +401,31 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
             <ArrowRight size={24} />
           </button>
           <div className="w-10 h-10 rounded-full bg-[#24a1de] flex items-center justify-center text-white overflow-hidden relative flex-shrink-0">
-            {chat.photoURL ? (
-              <img src={chat.photoURL} alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <span className="font-bold">{chat.name?.[0] || 'U'}</span>
-            )}
+            {(() => {
+              const otherUserId = chat.memberIds.find(id => id !== auth.currentUser?.uid);
+              const otherUser = members[otherUserId || ''];
+              
+              if (chat.type === 'private' && otherUser?.isPremium && otherUser?.videoPhotoURL) {
+                return (
+                  <video 
+                    src={otherUser.videoPhotoURL} 
+                    className="w-full h-full object-cover" 
+                    autoPlay 
+                    loop 
+                    muted 
+                    playsInline
+                  />
+                );
+              }
+              
+              const displayPhotoURL = chat.type === 'private' ? otherUser?.photoURL : chat.photoURL;
+              
+              return displayPhotoURL ? (
+                <img src={displayPhotoURL} alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="font-bold">{chat.name?.[0] || 'U'}</span>
+              );
+            })()}
           </div>
           <div className="overflow-hidden">
             <h2 className="font-bold text-gray-800 truncate">{chat.name || 'محادثة خاصة'}</h2>
