@@ -99,23 +99,31 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
       setMessages(msgs);
-      
-      // Fetch sender profiles for new messages
-      const senderIds = Array.from(new Set(msgs.map(m => m.senderId)));
-      senderIds.forEach(async (id) => {
-        if (!members[id]) {
-          const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', id)));
-          if (!userDoc.empty) {
-            setMembers(prev => ({ ...prev, [id]: userDoc.docs[0].data() as UserProfile }));
-          }
-        }
-      });
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, `chats/${chat.id}/messages`);
     });
 
     return () => unsubscribe();
   }, [chat.id, auth.currentUser]);
+
+  useEffect(() => {
+    if (!chat.memberIds || chat.memberIds.length === 0) return;
+
+    // Listen to all users involved in the chat
+    const q = query(collection(db, 'users'), where('uid', 'in', chat.memberIds));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const newMembers: Record<string, UserProfile> = {};
+      snapshot.docs.forEach(doc => {
+        const data = doc.data() as UserProfile;
+        newMembers[data.uid] = data;
+      });
+      setMembers(newMembers);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users');
+    });
+    
+    return () => unsubscribe();
+  }, [chat.memberIds]);
 
   useEffect(() => {
     if (chat.type === 'group' && chat.admins && auth.currentUser) {

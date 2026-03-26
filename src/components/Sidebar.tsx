@@ -43,14 +43,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
       orderBy('lastMessageTime', 'desc')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeChats = onSnapshot(q, (snapshot) => {
       const chatList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat));
       setChats(chatList);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'chats');
     });
 
-    return () => unsubscribe();
+    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const userList = snapshot.docs.map(doc => doc.data() as UserProfile);
+      setUsers(userList);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users');
+    });
+
+    return () => {
+      unsubscribeChats();
+      unsubscribeUsers();
+    };
   }, []);
 
   const handleCreateGroup = async () => {
