@@ -32,16 +32,24 @@ export const Settings: React.FC<SettingsProps> = ({ profile, onClose, onOpenAdmi
     const file = e.target.files?.[0];
     if (!file || !auth.currentUser) return;
 
-    setSaving(true);
+    // Optimistic UI: Set local URL immediately
+    const localUrl = URL.createObjectURL(file);
+    setPhotoURL(localUrl);
+
+    // Background upload
     try {
       const storageRef = ref(storage, `profilePictures/${auth.currentUser.uid}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
-      setPhotoURL(url);
+      
+      // Update Firestore immediately so it persists
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        photoURL: url
+      });
+      
+      setPhotoURL(url); // Update to final URL
     } catch (error) {
       console.error('Error uploading file:', error);
-    } finally {
-      setSaving(false);
     }
   };
 
