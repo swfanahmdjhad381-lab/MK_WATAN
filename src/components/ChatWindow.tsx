@@ -374,10 +374,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
           reactions: {},
           seenBy: [auth.currentUser!.uid]
         };
-        await addDoc(collection(db, 'chats', chat.id, 'messages'), newMessage);
+        const docRef = await addDoc(collection(db, 'chats', chat.id, 'messages'), newMessage);
         
-        // Remove optimistic message
-        setMessages(prev => prev.filter(m => m.id !== tempId));
+        // Update optimistic message with real ID instead of removing it
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: docRef.id, isUploading: false } : m));
       } catch (error) {
         console.error('Error uploading:', error);
         setMessages(prev => prev.filter(m => m.id !== tempId));
