@@ -331,9 +331,35 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
     // Background upload
     const uploadFile = async () => {
       try {
-        const storageRef = ref(storage, `chats/${chat.id}/${tempId}_${file.name}`);
-        await uploadBytes(storageRef, file);
+        let fileToUpload = file;
+        // Simple compression for images
+        if (file.type.startsWith('image/')) {
+          const img = new Image();
+          img.src = URL.createObjectURL(file);
+          await new Promise((resolve) => (img.onload = resolve));
+          
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scaleSize;
+          
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          const blob = await new Promise<Blob | null>((resolve) => 
+            canvas.toBlob(resolve, 'image/jpeg', 0.7)
+          );
+          
+          if (blob) {
+            fileToUpload = new File([blob], file.name, { type: 'image/jpeg' });
+          }
+        }
+
+        const storageRef = ref(storage, `chats/${chat.id}/${tempId}_${fileToUpload.name}`);
+        await uploadBytes(storageRef, fileToUpload);
         const url = await getDownloadURL(storageRef);
+        console.log('Image uploaded successfully, URL:', url);
         
         // Add to Firestore
         const newMessage: any = {
@@ -344,7 +370,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
           timestamp: serverTimestamp(),
           type: type,
           fileUrl: url,
-          fileName: file.name,
+          fileName: fileToUpload.name,
           reactions: {},
           seenBy: [auth.currentUser!.uid]
         };
@@ -401,31 +427,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
             <ArrowRight size={24} />
           </button>
           <div className="w-10 h-10 rounded-full bg-[#24a1de] flex items-center justify-center text-white overflow-hidden relative flex-shrink-0">
-            {(() => {
-              const otherUserId = chat.memberIds.find(id => id !== auth.currentUser?.uid);
-              const otherUser = members[otherUserId || ''];
-              
-              if (chat.type === 'private' && otherUser?.isPremium && otherUser?.videoPhotoURL) {
-                return (
-                  <video 
-                    src={otherUser.videoPhotoURL} 
-                    className="w-full h-full object-cover" 
-                    autoPlay 
-                    loop 
-                    muted 
-                    playsInline
-                  />
-                );
-              }
-              
-              const displayPhotoURL = chat.type === 'private' ? otherUser?.photoURL : chat.photoURL;
-              
-              return displayPhotoURL ? (
-                <img src={displayPhotoURL} alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="font-bold">{chat.name?.[0] || 'U'}</span>
-              );
-            })()}
+            {chat.photoURL ? (
+              <img src={chat.photoURL} alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="font-bold">{chat.name?.[0] || 'U'}</span>
+            )}
           </div>
           <div className="overflow-hidden">
             <h2 className="font-bold text-gray-800 truncate">{chat.name || 'محادثة خاصة'}</h2>

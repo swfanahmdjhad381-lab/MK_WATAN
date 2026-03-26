@@ -396,8 +396,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         />
                       );
                     }
-                    return otherUser?.photoURL ? (
-                      <img src={otherUser.photoURL} alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    return chat.photoURL ? (
+                      <img src={chat.photoURL} alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       <span className="text-lg font-bold">{chat.name?.[0] || 'U'}</span>
                     );
