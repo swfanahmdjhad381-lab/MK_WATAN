@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { db, auth } from '../firebase';
+import { db, auth, storage } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, updateDoc, doc, getDocs, where, getDoc } from 'firebase/firestore';
 import { Chat, Message, OperationType, UserProfile, ChatPermissions } from '../types';
 import { handleFirestoreError } from '../lib/firestore-utils';
