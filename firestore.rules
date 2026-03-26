@@ -1,0 +1,240 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (uid)
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string (required)
+    //   - photoURL: string (optional)
+    //   - email: string (optional)
+    //   - status: string (optional)
+    //   - lastSeen: timestamp (optional)
+    //
+    // Collection: chats
+    // Document ID: chatId
+    // Fields:
+    //   - id: string (required)
+    //   - type: string (required, enum: ['private', 'group'])
+    //   - name: string (optional)
+    //   - photoURL: string (optional)
+    //   - lastMessage: string (optional)
+    //   - lastMessageTime: timestamp (optional)
+    //   - memberIds: list (required)
+    //   - createdBy: string (required)
+    //
+    // Collection: chats/{chatId}/messages
+    // Document ID: messageId
+    // Fields:
+    //   - id: string (required)
+    //   - chatId: string (required)
+    //   - senderId: string (required)
+    //   - senderName: string (required)
+    //   - text: string (required)
+    //   - timestamp: timestamp (required)
+    //   - type: string (required, enum: ['text', 'image', 'file'])
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isBootstrapAdmin() {
+      return isAuthenticated() && request.auth.token.email == "sjdekhddjsaeb@gmail.com";
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (isBootstrapAdmin() || 
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+    }
+
+    function isModerator() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator';
+    }
+
+    function isBanned() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBanned == true;
+    }
+
+    function isMuted() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isMuted == true;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isChatMember(chatId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/chats/$(chatId)) && 
+             request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.memberIds &&
+             !isBannedFromChat(chatId);
+    }
+
+    function isBannedFromChat(chatId) {
+      return exists(/databases/$(database)/documents/chats/$(chatId)) && 
+             'bannedUserIds' in get(/databases/$(database)/documents/chats/$(chatId)).data && 
+             request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.bannedUserIds;
+    }
+
+    function isMutedInChat(chatId) {
+      return exists(/databases/$(database)/documents/chats/$(chatId)) && 
+             'mutedUserIds' in get(/databases/$(database)/documents/chats/$(chatId)).data && 
+             request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.mutedUserIds;
+    }
+
+    function hasChatPermission(chatId, permission) {
+      return exists(/databases/$(database)/documents/chats/$(chatId)) && 
+             (
+               get(/databases/$(database)/documents/chats/$(chatId)).data.createdBy == request.auth.uid || 
+               (
+                 'admins' in get(/databases/$(database)/documents/chats/$(chatId)).data && 
+                 request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.admins && 
+                 get(/databases/$(database)/documents/chats/$(chatId)).data.admins[request.auth.uid].permissions[permission] == true
+               )
+             );
+    }
+
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() > 0 &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 100 &&
+             (!('username' in data) || (data.username is string && data.username.size() < 50)) &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() < 500)) &&
+             (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() < 20)) &&
+             (!('videoPhotoURL' in data) || (data.videoPhotoURL is string && data.videoPhotoURL.size() < 1000)) &&
+             (!('isBanned' in data) || data.isBanned is bool) &&
+             (!('isMuted' in data) || data.isMuted is bool) &&
+             (!('isDeviceBanned' in data) || data.isDeviceBanned is bool);
+    }
+
+    function isValidChat(data) {
+      return data.type in ['private', 'group', 'saved'] &&
+             data.memberIds is list && data.memberIds.size() >= 1 && data.memberIds.size() <= 500 &&
+             data.createdBy is string &&
+             (!('name' in data) || (data.name is string && data.name.size() < 100)) &&
+             (!('isPublic' in data) || data.isPublic is bool) &&
+             (!('username' in data) || (data.username is string && data.username.size() < 50)) &&
+             (!('inviteLink' in data) || (data.inviteLink is string && data.inviteLink.size() < 500)) &&
+             (!('lastMessage' in data) || data.lastMessage is string) &&
+             (!('lastMessageTime' in data) || data.lastMessageTime is timestamp) &&
+             (!('pinnedMessageId' in data) || data.pinnedMessageId is string) &&
+             (!('bannedUserIds' in data) || data.bannedUserIds is list) &&
+             (!('mutedUserIds' in data) || data.mutedUserIds is list);
+    }
+
+    function isValidMessage(data) {
+      return data.chatId is string &&
+             data.senderId == request.auth.uid &&
+             data.text is string && data.text.size() >= 0 && data.text.size() < 5000 &&
+             data.timestamp is timestamp &&
+             (!('replyTo' in data) || (
+               data.replyTo is map &&
+               data.replyTo.id is string &&
+               data.replyTo.text is string &&
+               data.replyTo.senderName is string
+             )) &&
+             (!('isEdited' in data) || data.isEdited is bool) &&
+             (!('isForwarded' in data) || data.isForwarded is bool) &&
+             (!('forwardedFrom' in data) || data.forwardedFrom is string);
+    }
+
+    function isValidVideo(data) {
+      return data.userId == request.auth.uid &&
+             data.url is string && data.url.size() > 0 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      (isBootstrapAdmin() || 
+                       ((!('role' in request.resource.data) || request.resource.data.role == 'user') && 
+                        (!('isPremium' in request.resource.data) || request.resource.data.isPremium == false) &&
+                        (!('isBanned' in request.resource.data) || request.resource.data.isBanned == false) &&
+                        (!('isMuted' in request.resource.data) || request.resource.data.isMuted == false)));
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && 
+                        (isBootstrapAdmin() || 
+                         ((!('role' in request.resource.data) || request.resource.data.role == resource.data.role) && 
+                          (!('isPremium' in request.resource.data) || request.resource.data.isPremium == resource.data.isPremium) &&
+                          (!('isBanned' in request.resource.data) || request.resource.data.isBanned == resource.data.isBanned) &&
+                          (!('isMuted' in request.resource.data) || request.resource.data.isMuted == resource.data.isMuted)))) || 
+                      isAdmin();
+      allow delete: if isAdmin();
+
+      match /videos/{videoId} {
+        allow read: if isAuthenticated() && !isBanned();
+        allow create: if isOwner(userId) && !isBanned() && isValidVideo(request.resource.data);
+        allow update: if isOwner(userId) && !isBanned() && isValidVideo(request.resource.data);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    match /usernames/{username} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    match /public_videos/{videoId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && !isBanned() && !isBannedFromChat(chatId) && (request.auth.uid in resource.data.memberIds || resource.data.isPublic == true);
+      allow create: if isAuthenticated() && !isBanned() && isValidChat(request.resource.data) && request.auth.uid in request.resource.data.memberIds;
+      allow update: if isAuthenticated() && !isBanned() && (request.auth.uid in resource.data.memberIds || isAdmin()) && 
+                      (resource.data.createdBy == request.auth.uid || 
+                       isAdmin() ||
+                       hasChatPermission(chatId, 'canChangeInfo') ||
+                       hasChatPermission(chatId, 'canBanUsers') ||
+                       hasChatPermission(chatId, 'canPinMessages') ||
+                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessage', 'lastMessageTime'])));
+
+      match /messages/{messageId} {
+        allow read: if (isChatMember(chatId) && !isBanned()) || (isAuthenticated() && !isBanned() && !isBannedFromChat(chatId) && get(/databases/$(database)/documents/chats/$(chatId)).data.isPublic == true);
+        allow create: if isChatMember(chatId) && !isBanned() && !isMuted() && !isMutedInChat(chatId) && isValidMessage(request.resource.data) && 
+                        (get(/databases/$(database)/documents/chats/$(chatId)).data.type == 'private' || 
+                         isAdmin() ||
+                         (request.resource.data.type == 'text' && hasChatPermission(chatId, 'canSendMessages')) ||
+                         (request.resource.data.type in ['image', 'file'] && hasChatPermission(chatId, 'canSendMedia')));
+        allow delete: if (isChatMember(chatId) && (resource.data.senderId == request.auth.uid || hasChatPermission(chatId, 'canDeleteMessages'))) || isAdmin();
+        allow update: if isChatMember(chatId) && !isBanned() && 
+                        (
+                          (resource.data.senderId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'isEdited', 'reactions'])) ||
+                          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenBy', 'reactions'])) ||
+                          isAdmin()
+                        );
+      }
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

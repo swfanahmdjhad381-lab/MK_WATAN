@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "بيانات المستخدم الشخصية",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string", "description": "اسم مستخدم فريد للبحث" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "email": { "type": "string" },
+        "status": { "type": "string", "description": "متصل أو غير متصل" },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "role": { "type": "string", "enum": ["admin", "moderator", "user"] },
+        "isPremium": { "type": "boolean" },
+        "bio": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "twoStepEnabled": { "type": "boolean" }
+      },
+      "required": ["uid", "displayName"]
+    },
+    "Video": {
+      "title": "Video",
+      "description": "فيديوهات عامة للمستخدمين",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "url": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "url", "title", "userId"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "بيانات المحادثة (فردية أو جماعية)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["private", "group"] },
+        "name": { "type": "string", "description": "اسم المجموعة (اختياري للمحادثات الخاصة)" },
+        "photoURL": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastMessageTime": { "type": "string", "format": "date-time" },
+        "memberIds": { "type": "array", "items": { "type": "string" } },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["id", "type", "memberIds"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "الرسائل المرسلة في المحادثات",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["text", "image", "file"] }
+      },
+      "required": ["id", "chatId", "senderId", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "ملفات تعريف المستخدمين"
+    },
+    "/users/{userId}/videos/{videoId}": {
+      "schema": "Video",
+      "description": "فيديوهات المستخدم الخاصة"
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "المحادثات والمجموعات"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "الرسائل داخل كل محادثة"
+    }
+  }
+}
