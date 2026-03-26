@@ -101,7 +101,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-[#517da2]">
+      <div className="flex items-center justify-center h-full bg-[#517da2]">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
       </div>
     );
@@ -113,7 +113,7 @@ export default function App() {
 
   if (userProfile?.isBanned) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-red-600 text-white p-8 text-center" dir="rtl">
+      <div className="flex flex-col items-center justify-center h-full bg-red-600 text-white p-8 text-center" dir="rtl">
         <Ban size={64} className="mb-6 animate-pulse" />
         <h1 className="text-3xl font-black mb-4">تم حظر حسابك</h1>
         <p className="max-w-md text-lg opacity-90">
@@ -132,7 +132,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="flex h-[100dvh] bg-gray-100 overflow-hidden font-sans" dir="rtl">
+      <div className="flex h-full bg-gray-100 overflow-hidden font-sans" dir="rtl">
         {/* Sidebar */}
         <div className={`${selectedChat ? 'hidden md:block' : 'block'} w-full md:w-80 h-full flex-shrink-0 border-l border-gray-200`}>
           <Sidebar 

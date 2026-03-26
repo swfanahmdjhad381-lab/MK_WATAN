@@ -6,6 +6,14 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 @keyframes flame {
   0% { transform: scale(1) rotate(-2deg); filter: drop-shadow(0 0 5px #ff4500); }
   50% { transform: scale(1.1) rotate(2deg); filter: drop-shadow(0 0 15px #ff8c00); }
