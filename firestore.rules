@@ -118,6 +118,7 @@ service cloud.firestore {
              (!('username' in data) || (data.username is string && data.username.size() < 50)) &&
              (!('bio' in data) || (data.bio is string && data.bio.size() < 500)) &&
              (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() < 20)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 1000)) &&
              (!('videoPhotoURL' in data) || (data.videoPhotoURL is string && data.videoPhotoURL.size() < 1000)) &&
              (!('isBanned' in data) || data.isBanned is bool) &&
              (!('isMuted' in data) || data.isMuted is bool) &&

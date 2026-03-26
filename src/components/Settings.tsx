@@ -4,7 +4,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateDoc, doc, getDoc, setDoc, deleteDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { UserProfile, OperationType } from '../types';
 import { handleFirestoreError } from '../lib/firestore-utils';
-import { X, Camera, User, Shield, Phone, Info, Check, AtSign, Star, Upload } from 'lucide-react';
+import { X, Camera, User, Shield, Phone, Info, Check, AtSign, Star, Upload, Smartphone } from 'lucide-react';
 import { motion } from 'motion/react';
 import { PremiumFeaturesList } from './PremiumFeaturesList';
 
@@ -43,14 +43,17 @@ export const Settings: React.FC<SettingsProps> = ({ profile, onClose, onOpenAdmi
       const url = await getDownloadURL(storageRef);
       const urlWithTimestamp = `${url}?t=${Date.now()}`;
       
+      console.log('Uploading photo to:', urlWithTimestamp);
+      
       // Update Firestore immediately so it persists
       await updateDoc(doc(db, 'users', auth.currentUser.uid), {
         photoURL: urlWithTimestamp
       });
       
       setPhotoURL(urlWithTimestamp); // Update to final URL
+      console.log('Photo updated in Firestore');
     } catch (error) {
-      console.error('Error uploading file:', error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
     }
   };
 
@@ -58,6 +61,7 @@ export const Settings: React.FC<SettingsProps> = ({ profile, onClose, onOpenAdmi
     if (!auth.currentUser) return;
     setSaving(true);
     setUsernameError('');
+    console.log('Saving profile:', { displayName, username, photoURL });
 
     try {
       // Check username uniqueness if changed
