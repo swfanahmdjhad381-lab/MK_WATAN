@@ -236,6 +236,10 @@ service cloud.firestore {
       }
     }
 
+    match /admin_accounts/{accountId} {
+      allow read, write: if false;
+    }
+
     match /test/connection {
       allow read: if true;
     }

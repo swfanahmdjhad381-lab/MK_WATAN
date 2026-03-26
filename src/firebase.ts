@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -12,6 +12,21 @@ export const googleProvider = new GoogleAuthProvider();
 
 export const loginWithGoogle = async () => {
   await signInWithRedirect(auth, googleProvider);
+};
+
+export const loginWithUsername = async (username, password) => {
+  const response = await fetch('/api/auth/login-username', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error);
+  }
+
+  return await signInWithCustomToken(auth, data.token);
 };
 
 export const handleRedirectResult = async () => {

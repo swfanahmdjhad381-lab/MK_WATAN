@@ -1,9 +1,29 @@
-import React from 'react';
-import { loginWithGoogle } from '../firebase';
-import { LogIn } from 'lucide-react';
-import { motion } from 'motion/react';
+import React, { useState } from 'react';
+import { loginWithGoogle, loginWithUsername } from '../firebase';
+import { LogIn, User, Lock, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 export const Login: React.FC = () => {
+  const [loginMode, setLoginMode] = useState<'google' | 'username'>('google');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleUsernameLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      await loginWithUsername(username, password);
+    } catch (err: any) {
+      setError(err.message || 'فشل تسجيل الدخول');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center h-full bg-[#517da2]">
       <motion.div
@@ -17,14 +37,99 @@ export const Login: React.FC = () => {
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-gray-800 mb-2">مرحباً بك في تليجرام</h1>
-        <p className="text-gray-500 text-center mb-8">سجل دخولك للبدء في المراسلة</p>
-        <button
-          onClick={loginWithGoogle}
-          className="flex items-center gap-3 px-6 py-3 bg-[#24a1de] text-white rounded-xl hover:bg-[#1e88bc] transition-all w-full justify-center font-medium shadow-md"
-        >
-          <LogIn size={20} />
-          تسجيل الدخول عبر جوجل
-        </button>
+        
+        <div className="flex gap-2 mb-6 w-full p-1 bg-gray-100 rounded-xl">
+          <button 
+            onClick={() => setLoginMode('google')}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${loginMode === 'google' ? 'bg-white shadow-sm text-[#24a1de]' : 'text-gray-500'}`}
+          >
+            جوجل
+          </button>
+          <button 
+            onClick={() => setLoginMode('username')}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${loginMode === 'username' ? 'bg-white shadow-sm text-[#24a1de]' : 'text-gray-500'}`}
+          >
+            حساب خاص
+          </button>
+        </div>
+
+        <AnimatePresence mode="wait">
+          {loginMode === 'google' ? (
+            <motion.div
+              key="google"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="w-full"
+            >
+              <p className="text-gray-500 text-center mb-8">سجل دخولك عبر حساب جوجل للبدء</p>
+              <button
+                onClick={loginWithGoogle}
+                className="flex items-center gap-3 px-6 py-3 bg-[#24a1de] text-white rounded-xl hover:bg-[#1e88bc] transition-all w-full justify-center font-medium shadow-md"
+              >
+                <LogIn size={20} />
+                تسجيل الدخول عبر جوجل
+              </button>
+            </motion.div>
+          ) : (
+            <motion.form
+              key="username"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="w-full space-y-4"
+              onSubmit={handleUsernameLogin}
+            >
+              <p className="text-gray-500 text-center mb-4 text-sm">أدخل بيانات الحساب التي زودك بها المسؤول</p>
+              
+              {error && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 text-red-600 rounded-xl text-xs border border-red-100">
+                  <AlertCircle size={14} />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="relative">
+                <User className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                  type="text"
+                  placeholder="اسم المستخدم"
+                  className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#24a1de] focus:border-transparent outline-none transition-all text-right"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                  type="password"
+                  placeholder="كلمة المرور"
+                  className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#24a1de] focus:border-transparent outline-none transition-all text-right"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="flex items-center gap-3 px-6 py-3 bg-[#24a1de] text-white rounded-xl hover:bg-[#1e88bc] transition-all w-full justify-center font-medium shadow-md disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <LogIn size={20} />
+                    تسجيل الدخول
+                  </>
+                )}
+              </button>
+            </motion.form>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );
