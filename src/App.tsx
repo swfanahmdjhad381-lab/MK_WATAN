@@ -39,6 +39,7 @@ export default function App() {
           const profileData: Partial<UserProfile> = {
             uid: currentUser.uid,
             displayName: currentUser.displayName || 'Anonymous',
+            searchName: (currentUser.displayName || 'Anonymous').toLowerCase(),
             photoURL: currentUser.photoURL || '',
             email: currentUser.email || '',
             status: 'online',

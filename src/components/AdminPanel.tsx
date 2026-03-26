@@ -18,13 +18,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const [actionLoading, setActionLoading] = useState(false);
 
   const searchUsers = async () => {
-    if (!searchTerm.trim()) return;
+    const term = searchTerm.trim().toLowerCase().replace('@', '');
+    if (!term) return;
     setLoading(true);
     try {
       const q = query(
         collection(db, 'users'),
-        where('username', '>=', searchTerm.trim()),
-        where('username', '<=', searchTerm.trim() + '\uf8ff'),
+        where('username', '>=', term),
+        where('username', '<=', term + '\uf8ff'),
         limit(20)
       );
       const snapshot = await getDocs(q);

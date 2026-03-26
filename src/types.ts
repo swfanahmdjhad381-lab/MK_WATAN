@@ -2,6 +2,7 @@ export interface UserProfile {
   uid: string;
   username?: string;
   displayName: string;
+  searchName?: string;
   photoURL: string;
   email: string;
   status?: 'online' | 'offline';

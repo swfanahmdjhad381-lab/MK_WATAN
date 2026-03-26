@@ -58,6 +58,7 @@ export const Settings: React.FC<SettingsProps> = ({ profile, onClose, onOpenAdmi
 
       await updateDoc(doc(db, 'users', auth.currentUser.uid), {
         displayName,
+        searchName: displayName.toLowerCase(),
         username: username.toLowerCase(),
         photoURL,
         videoPhotoURL,

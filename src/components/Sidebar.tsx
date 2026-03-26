@@ -86,11 +86,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const term = searchTerm.trim().toLowerCase().replace('@', '');
     if (!term) {
       setIsSearching(false);
+      setSearchResults([]);
       return;
     }
 
@@ -109,12 +110,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       snap2.docs.forEach(doc => results.set(doc.id, doc.data() as UserProfile));
 
       // DisplayName exact match
-      const q3 = query(collection(db, 'users'), where('displayName', '==', searchTerm.trim()), limit(5));
+      const q3 = query(collection(db, 'users'), where('searchName', '==', term), limit(5));
       const snap3 = await getDocs(q3);
       snap3.docs.forEach(doc => results.set(doc.id, doc.data() as UserProfile));
 
       // DisplayName prefix match
-      const q4 = query(collection(db, 'users'), where('displayName', '>=', searchTerm.trim()), where('displayName', '<=', searchTerm.trim() + '\uf8ff'), limit(5));
+      const q4 = query(collection(db, 'users'), where('searchName', '>=', term), where('searchName', '<=', term + '\uf8ff'), limit(5));
       const snap4 = await getDocs(q4);
       snap4.docs.forEach(doc => results.set(doc.id, doc.data() as UserProfile));
       
@@ -123,6 +124,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       console.error('Search error:', error);
     }
   };
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchTerm.trim()) {
+        handleSearch();
+      } else {
+        setIsSearching(false);
+        setSearchResults([]);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
+
 
   const startChat = async (targetUser: UserProfile) => {
     if (!auth.currentUser) return;
