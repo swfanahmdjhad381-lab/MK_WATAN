@@ -300,30 +300,56 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
     const file = e.target.files?.[0];
     if (!file || !auth.currentUser) return;
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const base64 = event.target?.result as string;
-      const type = file.type.startsWith('image/') ? 'image' : 'file';
-      
-      // Optimistic UI
-      const optimisticMessage: Message = {
-        id: 'temp-' + Date.now(),
-        chatId: chat.id,
-        senderId: auth.currentUser!.uid,
-        senderName: auth.currentUser!.displayName || 'Anonymous',
-        text: '',
-        timestamp: { toDate: () => new Date() } as any,
-        type: type,
-        fileUrl: base64,
-        fileName: file.name,
-        reactions: {},
-        seenBy: [auth.currentUser!.uid]
-      };
-      setMessages(prev => [...prev, optimisticMessage]);
-
-      await handleSendMessage(undefined, { url: base64, name: file.name, type });
+    const tempId = 'temp-' + Date.now();
+    const type = file.type.startsWith('image/') ? 'image' : 'file';
+    
+    // Optimistic UI
+    const optimisticMessage: Message = {
+      id: tempId,
+      chatId: chat.id,
+      senderId: auth.currentUser!.uid,
+      senderName: auth.currentUser!.displayName || 'Anonymous',
+      text: '',
+      timestamp: { toDate: () => new Date() } as any,
+      type: type,
+      fileUrl: URL.createObjectURL(file), // Use local URL for immediate display
+      fileName: file.name,
+      reactions: {},
+      seenBy: [auth.currentUser!.uid],
+      isUploading: true
     };
-    reader.readAsDataURL(file);
+    setMessages(prev => [...prev, optimisticMessage]);
+
+    // Background upload
+    const uploadFile = async () => {
+      try {
+        const storageRef = ref(storage, `chats/${chat.id}/${tempId}_${file.name}`);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        
+        // Add to Firestore
+        const newMessage: any = {
+          chatId: chat.id,
+          senderId: auth.currentUser!.uid,
+          senderName: auth.currentUser!.displayName || 'Anonymous',
+          text: '',
+          timestamp: serverTimestamp(),
+          type: type,
+          fileUrl: url,
+          fileName: file.name,
+          reactions: {},
+          seenBy: [auth.currentUser!.uid]
+        };
+        await addDoc(collection(db, 'chats', chat.id, 'messages'), newMessage);
+        
+        // Remove optimistic message
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+      } catch (error) {
+        console.error('Error uploading:', error);
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+      }
+    };
+    uploadFile();
   };
 
   const addReaction = async (messageId: string, emoji: string) => {

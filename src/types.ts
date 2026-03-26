@@ -99,6 +99,8 @@ export interface Message {
   isForwarded?: boolean;
   forwardedFrom?: string;
   seenBy?: string[];
+  isDeleted?: boolean;
+  isUploading?: boolean;
 }
 
 export enum OperationType {
