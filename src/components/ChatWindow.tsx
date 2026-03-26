@@ -298,12 +298,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !auth.currentUser) return;
 
     const reader = new FileReader();
     reader.onload = async (event) => {
       const base64 = event.target?.result as string;
       const type = file.type.startsWith('image/') ? 'image' : 'file';
+      
+      // Optimistic UI
+      const optimisticMessage: Message = {
+        id: 'temp-' + Date.now(),
+        chatId: chat.id,
+        senderId: auth.currentUser!.uid,
+        senderName: auth.currentUser!.displayName || 'Anonymous',
+        text: '',
+        timestamp: { toDate: () => new Date() } as any,
+        type: type,
+        fileUrl: base64,
+        fileName: file.name,
+        reactions: {},
+        seenBy: [auth.currentUser!.uid]
+      };
+      setMessages(prev => [...prev, optimisticMessage]);
+
       await handleSendMessage(undefined, { url: base64, name: file.name, type });
     };
     reader.readAsDataURL(file);
@@ -430,6 +447,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
                 key={msg.id}
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
+                drag="x"
+                dragConstraints={{ left: -100, right: 0 }}
+                onDragEnd={(event, info) => {
+                  if (info.offset.x < -50) {
+                    setReplyTo(msg);
+                  }
+                }}
                 className={`flex ${isMe ? 'justify-start' : 'justify-end'} mb-2 gap-2 items-end`}
               >
                 {!isMe && (
