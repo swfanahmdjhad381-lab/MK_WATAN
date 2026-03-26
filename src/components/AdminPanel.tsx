@@ -102,6 +102,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     }
   };
 
+  const handleToggleModerator = async (user: UserProfile) => {
+    setActionLoading(true);
+    try {
+      const newRole = user.role === 'moderator' ? 'user' : 'moderator';
+      await updateDoc(doc(db, 'users', user.uid), {
+        role: newRole
+      });
+      setSelectedUser(prev => prev ? { ...prev, role: newRole } : null);
+      setUsers(prev => prev.map(u => u.uid === user.uid ? { ...u, role: newRole } : u));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleToggleDeviceBan = async (user: UserProfile) => {
     setActionLoading(true);
     try {
@@ -247,6 +263,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                   >
                     <Star size={24} className={selectedUser.isPremium ? "fill-yellow-500" : ""} />
                     <span className="font-bold text-sm">{selectedUser.isPremium ? 'إلغاء الاشتراك المميز' : 'تفعيل الاشتراك المميز'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleToggleModerator(selectedUser)}
+                    disabled={actionLoading}
+                    className={`p-4 rounded-2xl flex flex-col items-center gap-2 transition-all ${
+                      selectedUser.role === 'moderator'
+                        ? 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100' 
+                        : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Shield size={24} className={selectedUser.role === 'moderator' ? "fill-blue-500" : ""} />
+                    <span className="font-bold text-sm">{selectedUser.role === 'moderator' ? 'إلغاء الإشراف' : 'تعيين مشرف'}</span>
                   </button>
 
                   <button
