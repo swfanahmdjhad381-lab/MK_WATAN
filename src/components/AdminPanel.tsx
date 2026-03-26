@@ -303,7 +303,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 {users.length === 0 && !loading && (
                   <div className="py-12 text-center text-gray-400">
                     <Search size={48} className="mx-auto mb-2 opacity-10" />
-                    <p className="text-sm">ابحث عن مستخدم للبدء في إدارته</p>
+                    <p className="text-sm">لا يوجد مستخدمين لعرضهم</p>
                   </div>
                 )}
               </div>
