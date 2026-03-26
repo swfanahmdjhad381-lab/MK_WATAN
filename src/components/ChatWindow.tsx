@@ -379,11 +379,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
         const docRef = await addDoc(collection(db, 'chats', chat.id, 'messages'), newMessage);
         
         // Update optimistic message with real ID instead of removing it
-        console.log('Updating optimistic message:', tempId, 'to', docRef.id);
         setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: docRef.id, isUploading: false } : m));
       } catch (error) {
         console.error('Error uploading:', error);
-        console.log('Removing failed optimistic message:', tempId);
         setMessages(prev => prev.filter(m => m.id !== tempId));
       }
     };

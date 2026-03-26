@@ -155,7 +155,7 @@ service cloud.firestore {
              (!('isEdited' in data) || data.isEdited is bool) &&
              (!('isForwarded' in data) || data.isForwarded is bool) &&
              (!('forwardedFrom' in data) || data.forwardedFrom is string) &&
-             (!('fileUrl' in data) || (data.fileUrl is string && data.fileUrl.size() < 1000)) &&
+             (!('fileUrl' in data) || (data.fileUrl is string && data.fileUrl.size() < 2000)) &&
              (!('fileName' in data) || (data.fileName is string && data.fileName.size() < 200));
     }
 
