@@ -41,13 +41,14 @@ export const Settings: React.FC<SettingsProps> = ({ profile, onClose, onOpenAdmi
       const storageRef = ref(storage, `profilePictures/${auth.currentUser.uid}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
+      const urlWithTimestamp = `${url}?t=${Date.now()}`;
       
       // Update Firestore immediately so it persists
       await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-        photoURL: url
+        photoURL: urlWithTimestamp
       });
       
-      setPhotoURL(url); // Update to final URL
+      setPhotoURL(urlWithTimestamp); // Update to final URL
     } catch (error) {
       console.error('Error uploading file:', error);
     }
