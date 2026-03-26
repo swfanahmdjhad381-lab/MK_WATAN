@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 
 export const Login: React.FC = () => {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#517da2]">
+    <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-[#517da2]">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}

@@ -237,7 +237,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div className="w-full h-full bg-white border-l border-gray-200 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-4 bg-[#517da2] text-white">
+      <div className="p-4 bg-[#517da2] text-white flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-1">
             <button onClick={logout} className="p-2 hover:bg-white/10 rounded-full transition-colors">
@@ -307,7 +307,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Chat List / Search Results */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
         {isSearching ? (
           <div className="p-2">
             <div className="flex justify-between items-center px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">

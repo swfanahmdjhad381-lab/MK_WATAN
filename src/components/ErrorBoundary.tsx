@@ -29,7 +29,7 @@ export class ErrorBoundary extends (React.Component as any) {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4 text-center">
+        <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-gray-100 p-4 text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">عذراً! حدث خطأ</h1>
           <p className="text-gray-700 mb-6">حدث خطأ ما. يرجى المحاولة مرة أخرى.</p>
           <button

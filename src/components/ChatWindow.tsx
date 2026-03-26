@@ -339,14 +339,41 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
   const isOwner = chat.createdBy === auth.currentUser?.uid;
 
   return (
-    <div className="flex-1 h-full flex flex-col bg-[#e7ebf0] relative overflow-hidden font-sans">
+    <div className="flex-1 min-h-0 h-full flex flex-col bg-[#e7ebf0] relative overflow-hidden font-sans">
       {/* Chat Header */}
-      <div className="p-3 bg-white border-b border-gray-200 flex items-center justify-between shadow-sm z-10">
-        <div className="flex items-center gap-3">
-          <button className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
-            <MoreVertical size={20} />
+      <div className="p-3 bg-white border-b border-gray-200 flex items-center justify-between shadow-sm z-10 flex-shrink-0">
+        <div className="flex items-center gap-3 text-right">
+          <button 
+            onClick={onBack}
+            className="md:hidden p-2 hover:bg-gray-100 rounded-full text-gray-500"
+          >
+            <ArrowRight size={24} />
           </button>
-          <div className="flex gap-2">
+          <div className="w-10 h-10 rounded-full bg-[#24a1de] flex items-center justify-center text-white overflow-hidden relative flex-shrink-0">
+            {chat.photoURL ? (
+              <img src={chat.photoURL} alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="font-bold">{chat.name?.[0] || 'U'}</span>
+            )}
+          </div>
+          <div className="overflow-hidden">
+            <h2 className="font-bold text-gray-800 truncate">{chat.name || 'محادثة خاصة'}</h2>
+            {chat.isPublic && chat.username ? (
+              <a 
+                href={chat.inviteLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[10px] text-blue-500 hover:underline block truncate"
+              >
+                @{chat.username}
+              </a>
+            ) : (
+              <p className="text-xs text-blue-500 font-medium truncate">متصل الآن</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 sm:gap-3">
+          <div className="flex gap-1 sm:gap-2">
             {chat.type === 'group' && (chat.createdBy === auth.currentUser?.uid || chat.admins?.[auth.currentUser?.uid || '']) && (
               <button onClick={() => setShowSettings(true)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
                 <Settings size={20} />
@@ -359,42 +386,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
               <Phone size={20} />
             </button>
           </div>
-        </div>
-        <div className="flex items-center gap-3 text-right">
-          <button 
-            onClick={onBack}
-            className="md:hidden p-2 hover:bg-gray-100 rounded-full text-gray-500"
-          >
-            <ArrowRight size={24} />
+          <button className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
+            <MoreVertical size={20} />
           </button>
-          <div>
-            <h2 className="font-bold text-gray-800">{chat.name || 'محادثة خاصة'}</h2>
-            {chat.isPublic && chat.username ? (
-              <a 
-                href={chat.inviteLink} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-[10px] text-blue-500 hover:underline block"
-              >
-                @{chat.username}
-              </a>
-            ) : (
-              <p className="text-xs text-blue-500 font-medium">متصل الآن</p>
-            )}
-          </div>
-          <div className="w-10 h-10 rounded-full bg-[#24a1de] flex items-center justify-center text-white overflow-hidden relative">
-            {chat.photoURL ? (
-              <img src={chat.photoURL} alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <span className="font-bold">{chat.name?.[0] || 'U'}</span>
-            )}
-          </div>
         </div>
       </div>
 
       {/* Pinned Message Bar */}
       {pinnedMessage && (
-        <div className="bg-white/80 backdrop-blur-md border-b border-gray-100 p-2 flex items-center justify-between px-4 shadow-sm animate-in slide-in-from-top duration-300">
+        <div className="bg-white/80 backdrop-blur-md border-b border-gray-100 p-2 flex items-center justify-between px-4 shadow-sm animate-in slide-in-from-top duration-300 flex-shrink-0">
           <div className="flex items-center gap-3 overflow-hidden">
             <Pin size={14} className="text-[#24a1de] flex-shrink-0" />
             <div className="text-right overflow-hidden">
@@ -411,7 +411,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
       )}
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat">
         <AnimatePresence initial={false}>
           {messages.map((msg) => {
             const isMe = msg.senderId === auth.currentUser?.uid;
@@ -597,7 +597,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
       </div>
 
       {/* Input Area */}
-      <div className="p-3 bg-white border-t border-gray-200 flex flex-col gap-2">
+      <div className="p-3 bg-white border-t border-gray-200 flex flex-col gap-2 flex-shrink-0">
         {/* Sticker Picker */}
         <div className="flex gap-2 overflow-x-auto p-1 custom-scrollbar">
           {['🚀', '💎', '🔥', '✨', '🎉', '🐱', '🐶', '🍕', '🌍', '🎮'].map(sticker => (
@@ -641,12 +641,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
           <button className="p-2 text-gray-400 hover:text-[#24a1de] transition-colors">
             <Smile size={24} />
           </button>
-          <form onSubmit={(e) => handleSendMessage(e)} className="flex-1 flex items-center gap-2">
+          <form onSubmit={(e) => handleSendMessage(e)} className="flex-1 flex items-center gap-2 min-w-0">
             <input
               type="text"
               placeholder={editingMessage ? "تعديل الرسالة..." : (isMutedInGroup ? "أنت مكتوم في هذه المجموعة" : (chat.type === 'group' && currentUserPermissions && !currentUserPermissions.canSendMessages ? "ليس لديك صلاحية للإرسال" : "اكتب رسالة..."))}
               disabled={isMutedInGroup || (chat.type === 'group' && currentUserPermissions && !currentUserPermissions.canSendMessages)}
-              className="flex-1 py-2 px-4 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-[#24a1de] transition-all text-right disabled:opacity-50"
+              className="flex-1 min-w-0 py-2 px-4 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-[#24a1de] transition-all text-right disabled:opacity-50"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
             />
