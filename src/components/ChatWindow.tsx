@@ -836,15 +836,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
       setAiProgress('جاري إنشاء الصورة... 🎨');
 
       try {
-        // Check for API key
+        // Check for API key (only in AI Studio environment)
         // @ts-ignore
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        if (!hasKey) {
+        if (typeof window !== 'undefined' && window.aistudio) {
           // @ts-ignore
-          await window.aistudio.openSelectKey();
+          const hasKey = await window.aistudio.hasSelectedApiKey();
+          if (!hasKey) {
+            // @ts-ignore
+            await window.aistudio.openSelectKey();
+          }
         }
 
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY! });
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? (process.env.API_KEY || process.env.GEMINI_API_KEY) : '');
+        if (!apiKey) {
+          throw new Error('Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in your environment.');
+        }
+
+        const ai = new GoogleGenAI({ apiKey });
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash-image',
           contents: { parts: [{ text: promptText }] },
@@ -882,9 +890,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
             seenBy: [auth.currentUser!.uid]
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('AI Image Error:', error);
-        alert('حدث خطأ أثناء إنشاء الصورة.');
+        const errorMsg = error.message || 'حدث خطأ غير معروف';
+        alert(`حدث خطأ أثناء إنشاء الصورة: ${errorMsg}`);
       } finally {
         setIsGeneratingAI(false);
         setAiProgress('');

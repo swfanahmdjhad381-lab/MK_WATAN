@@ -48,15 +48,23 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ onClose, userPro
     setProgress('جاري التحقق من الصلاحيات... 🔑');
 
     try {
+      // Check for API key (only in AI Studio environment)
       // @ts-ignore
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      if (!hasKey) {
+      if (typeof window !== 'undefined' && window.aistudio) {
         // @ts-ignore
-        await window.aistudio.openSelectKey();
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          // @ts-ignore
+          await window.aistudio.openSelectKey();
+        }
       }
 
-      setProgress('جاري بدء عملية الإنشاء... قد يستغرق هذا بضع دقائق ⏳');
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY! });
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? (process.env.API_KEY || process.env.GEMINI_API_KEY) : '');
+      if (!apiKey) {
+        throw new Error('Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in your environment.');
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       
       let operation = await ai.models.generateVideos({
         model: 'veo-3.1-fast-generate-preview',
@@ -88,7 +96,8 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ onClose, userPro
       }
     } catch (error: any) {
       console.error('AI Video Error:', error);
-      alert('حدث خطأ أثناء إنشاء الفيديو. يرجى التأكد من مفتاح API والمحاولة مرة أخرى.');
+      const errorMsg = error.message || 'حدث خطأ غير معروف';
+      alert(`حدث خطأ أثناء إنشاء الفيديو: ${errorMsg}`);
     } finally {
       setIsGenerating(false);
       setProgress('');
@@ -102,15 +111,23 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ onClose, userPro
     setProgress('جاري رسم الصورة... 🎨');
 
     try {
-      // Check for API key
+      // Check for API key (only in AI Studio environment)
       // @ts-ignore
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      if (!hasKey) {
+      if (typeof window !== 'undefined' && window.aistudio) {
         // @ts-ignore
-        await window.aistudio.openSelectKey();
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          // @ts-ignore
+          await window.aistudio.openSelectKey();
+        }
       }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY! });
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? (process.env.API_KEY || process.env.GEMINI_API_KEY) : '');
+      if (!apiKey) {
+        throw new Error('Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in your environment.');
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { parts: [{ text: prompt }] },
@@ -129,9 +146,10 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ onClose, userPro
         setResultUrl(imageUrl);
         setResultType('image');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI Image Error:', error);
-      alert('حدث خطأ أثناء إنشاء الصورة.');
+      const errorMsg = error.message || 'حدث خطأ غير معروف';
+      alert(`حدث خطأ أثناء إنشاء الصورة: ${errorMsg}`);
     } finally {
       setIsGenerating(false);
       setProgress('');
@@ -145,15 +163,23 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ onClose, userPro
     setProgress('جاري تعديل الصورة... ✨');
 
     try {
-      // Check for API key
+      // Check for API key (only in AI Studio environment)
       // @ts-ignore
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      if (!hasKey) {
+      if (typeof window !== 'undefined' && window.aistudio) {
         // @ts-ignore
-        await window.aistudio.openSelectKey();
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          // @ts-ignore
+          await window.aistudio.openSelectKey();
+        }
       }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY! });
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? (process.env.API_KEY || process.env.GEMINI_API_KEY) : '');
+      if (!apiKey) {
+        throw new Error('Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in your environment.');
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       
       // Convert image to base64
       const reader = new FileReader();
@@ -188,9 +214,10 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ onClose, userPro
         setResultUrl(imageUrl);
         setResultType('image');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI Edit Error:', error);
-      alert('حدث خطأ أثناء تعديل الصورة.');
+      const errorMsg = error.message || 'حدث خطأ غير معروف';
+      alert(`حدث خطأ أثناء تعديل الصورة: ${errorMsg}`);
     } finally {
       setIsGenerating(false);
       setProgress('');
