@@ -4,9 +4,9 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, updateDoc, doc, getDocs, where, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { Chat, Message, OperationType, UserProfile, ChatPermissions } from '../types';
 import { handleFirestoreError } from '../lib/firestore-utils';
-import { Send, Paperclip, Smile, MoreVertical, Phone, Video, Star, Settings, ArrowRight, Pin, Reply, X, Copy, Wand2, Image as ImageIcon, Type as TypeIcon } from 'lucide-react';
+import { Send, Paperclip, Smile, MoreVertical, Phone, Video, Star, Settings, ArrowRight, Pin, Reply, X, Copy, Wand2, Image as ImageIcon, Type as TypeIcon, Sparkles, Film, Edit3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 
 import { CallOverlay } from './CallOverlay';
 import { ChatSettings } from './ChatSettings';
@@ -16,9 +16,10 @@ interface ChatWindowProps {
   chat: Chat;
   onBack: () => void;
   onSelectChat: (chat: Chat) => void;
+  userProfile: UserProfile | null;
 }
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectChat }) => {
+export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectChat, userProfile }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [members, setMembers] = useState<Record<string, UserProfile>>({});
   const [inputText, setInputText] = useState('');
@@ -29,6 +30,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const [chatUsers, setChatUsers] = useState<Record<string, UserProfile>>({});
+  const [showPremiumMenu, setShowPremiumMenu] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiProgress, setAiProgress] = useState('');
 
   useEffect(() => {
     const fetchChatUsers = async () => {
@@ -741,6 +745,155 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
     }
   };
 
+  const handlePremiumAITool = async (tool: 'video' | 'image' | 'edit') => {
+    if (!userProfile?.isPremium) {
+      alert('هذه الميزة متاحة فقط للمشتركين المميزين! 🌟');
+      return;
+    }
+
+    setShowPremiumMenu(false);
+    
+    if (tool === 'video') {
+      const promptText = prompt('أدخل وصف الفيديو الذي تريد إنشاءه (مثلاً: قطة فضاء تقود مركبة):');
+      if (!promptText) return;
+
+      setIsGeneratingAI(true);
+      setAiProgress('جاري التحقق من مفتاح API... 🔑');
+
+      try {
+        // Check for API key for Veo
+        // @ts-ignore
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          // @ts-ignore
+          await window.aistudio.openSelectKey();
+        }
+
+        setAiProgress('جاري بدء إنشاء الفيديو... قد يستغرق هذا بضع دقائق ⏳');
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY! });
+        
+        let operation = await ai.models.generateVideos({
+          model: 'veo-3.1-fast-generate-preview',
+          prompt: promptText,
+          config: {
+            numberOfVideos: 1,
+            resolution: '720p',
+            aspectRatio: '16:9'
+          }
+        });
+
+        while (!operation.done) {
+          setAiProgress('جاري معالجة الفيديو... يرجى عدم إغلاق الصفحة 🎬');
+          await new Promise(resolve => setTimeout(resolve, 10000));
+          operation = await ai.operations.getVideosOperation({ operation: operation });
+        }
+
+        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+        if (downloadLink) {
+          setAiProgress('تم إنشاء الفيديو! جاري التحميل... 📥');
+          const response = await fetch(downloadLink, {
+            method: 'GET',
+            headers: { 'x-goog-api-key': process.env.API_KEY || process.env.GEMINI_API_KEY! },
+          });
+          const blob = await response.blob();
+          const file = new File([blob], `ai_video_${Date.now()}.mp4`, { type: 'video/mp4' });
+          
+          // Upload to Firebase
+          const tempId = Date.now().toString();
+          const storageRef = ref(storage, `chats/${chat.id}/${tempId}_${file.name}`);
+          await uploadBytes(storageRef, file);
+          const url = await getDownloadURL(storageRef);
+
+          await addDoc(collection(db, 'chats', chat.id, 'messages'), {
+            chatId: chat.id,
+            senderId: auth.currentUser!.uid,
+            senderName: auth.currentUser!.displayName || 'Anonymous',
+            text: `فيديو تم إنشاؤه بالذكاء الاصطناعي: "${promptText}"`,
+            timestamp: serverTimestamp(),
+            type: 'file',
+            fileUrl: url,
+            fileName: file.name,
+            reactions: {},
+            seenBy: [auth.currentUser!.uid]
+          });
+        }
+      } catch (error: any) {
+        console.error('AI Video Error:', error);
+        if (error.message?.includes('Requested entity was not found')) {
+          // @ts-ignore
+          await window.aistudio.openSelectKey();
+        }
+        alert('حدث خطأ أثناء إنشاء الفيديو. يرجى المحاولة مرة أخرى.');
+      } finally {
+        setIsGeneratingAI(false);
+        setAiProgress('');
+      }
+    } else if (tool === 'image') {
+      const promptText = prompt('أدخل وصف الصورة التي تريد إنشاءها:');
+      if (!promptText) return;
+
+      setIsGeneratingAI(true);
+      setAiProgress('جاري إنشاء الصورة... 🎨');
+
+      try {
+        // Check for API key
+        // @ts-ignore
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          // @ts-ignore
+          await window.aistudio.openSelectKey();
+        }
+
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY! });
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash-image',
+          contents: { parts: [{ text: promptText }] },
+          config: { imageConfig: { aspectRatio: "1:1" } }
+        });
+
+        let imageUrl = '';
+        for (const part of response.candidates?.[0]?.content?.parts || []) {
+          if (part.inlineData) {
+            imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+            break;
+          }
+        }
+
+        if (imageUrl) {
+          const res = await fetch(imageUrl);
+          const blob = await res.blob();
+          const file = new File([blob], `ai_image_${Date.now()}.png`, { type: 'image/png' });
+          
+          const tempId = Date.now().toString();
+          const storageRef = ref(storage, `chats/${chat.id}/${tempId}_${file.name}`);
+          await uploadBytes(storageRef, file);
+          const url = await getDownloadURL(storageRef);
+
+          await addDoc(collection(db, 'chats', chat.id, 'messages'), {
+            chatId: chat.id,
+            senderId: auth.currentUser!.uid,
+            senderName: auth.currentUser!.displayName || 'Anonymous',
+            text: `صورة تم إنشاؤها بالذكاء الاصطناعي: "${promptText}"`,
+            timestamp: serverTimestamp(),
+            type: 'image',
+            fileUrl: url,
+            fileName: file.name,
+            reactions: {},
+            seenBy: [auth.currentUser!.uid]
+          });
+        }
+      } catch (error) {
+        console.error('AI Image Error:', error);
+        alert('حدث خطأ أثناء إنشاء الصورة.');
+      } finally {
+        setIsGeneratingAI(false);
+        setAiProgress('');
+      }
+    } else if (tool === 'edit') {
+      alert('يرجى إرسال صورة أولاً، ثم الرد عليها بطلب التعديل، أو استخدام بوت تعديل الصور المتخصص.');
+    }
+  };
+
   const handleDeleteMessage = async (messageId: string) => {
     try {
       await updateDoc(doc(db, 'chats', chat.id, 'messages', messageId), {
@@ -1184,7 +1337,53 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
           </div>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative">
+          {userProfile?.isPremium && (
+            <div className="relative">
+              <button 
+                onClick={() => setShowPremiumMenu(!showPremiumMenu)}
+                className={`p-2 rounded-full transition-all ${showPremiumMenu ? 'bg-yellow-100 text-yellow-600' : 'text-yellow-500 hover:bg-yellow-50'}`}
+                title="أدوات الذكاء الاصطناعي المميزة"
+              >
+                <Sparkles size={24} fill={showPremiumMenu ? "currentColor" : "none"} />
+              </button>
+
+              <AnimatePresence>
+                {showPremiumMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                    className="absolute bottom-full right-0 mb-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 w-56 z-50 overflow-hidden"
+                  >
+                    <div className="text-[10px] font-bold text-yellow-600 px-3 py-1 uppercase tracking-wider border-b border-gray-50 mb-1">أدوات الذكاء الاصطناعي المميزة</div>
+                    <button 
+                      onClick={() => handlePremiumAITool('video')}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-yellow-50 rounded-xl text-right transition-colors text-gray-700"
+                    >
+                      <Film size={18} className="text-purple-500" />
+                      <span className="text-sm font-medium">إنشاء فيديو AI</span>
+                    </button>
+                    <button 
+                      onClick={() => handlePremiumAITool('image')}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-yellow-50 rounded-xl text-right transition-colors text-gray-700"
+                    >
+                      <ImageIcon size={18} className="text-blue-500" />
+                      <span className="text-sm font-medium">إنشاء صورة AI</span>
+                    </button>
+                    <button 
+                      onClick={() => handlePremiumAITool('edit')}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-yellow-50 rounded-xl text-right transition-colors text-gray-700"
+                    >
+                      <Edit3 size={18} className="text-green-500" />
+                      <span className="text-sm font-medium">تعديل صورة AI</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
           <button className="p-2 text-gray-400 hover:text-[#24a1de] transition-colors">
             <Smile size={24} />
           </button>
@@ -1211,6 +1410,27 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
           </form>
         </div>
       </div>
+
+      {isGeneratingAI && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 text-center">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl"
+          >
+            <div className="relative w-20 h-20 mx-auto mb-6">
+              <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
+              <Sparkles className="absolute inset-0 m-auto text-yellow-500 animate-pulse" size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">جاري العمل بالذكاء الاصطناعي</h3>
+            <p className="text-gray-500 text-sm leading-relaxed">{aiProgress}</p>
+            <div className="mt-6 pt-6 border-t border-gray-100">
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest">Watan AI Engine</p>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {showCall && (
         <CallOverlay

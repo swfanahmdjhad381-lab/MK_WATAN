@@ -3,7 +3,7 @@ import { db, auth, logout } from '../firebase';
 import { collection, query, where, onSnapshot, orderBy, addDoc, serverTimestamp, getDocs, limit } from 'firebase/firestore';
 import { Chat, UserProfile, OperationType } from '../types';
 import { handleFirestoreError } from '../lib/firestore-utils';
-import { Search, Plus, LogOut, Users, MessageSquare, Star, Settings as SettingsIcon, Video as VideoIcon, Shield, AtSign } from 'lucide-react';
+import { Search, Plus, LogOut, Users, MessageSquare, Star, Settings as SettingsIcon, Video as VideoIcon, Shield, AtSign, Crown, Wand2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface SidebarProps {
@@ -11,6 +11,8 @@ interface SidebarProps {
   onOpenSettings: () => void;
   onOpenVideos: () => void;
   onOpenAdmin: () => void;
+  onOpenPremium: () => void;
+  onOpenCreativeStudio: () => void;
   selectedChatId?: string;
   userProfile: UserProfile | null;
 }
@@ -20,6 +22,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings, 
   onOpenVideos, 
   onOpenAdmin,
+  onOpenPremium,
+  onOpenCreativeStudio,
   selectedChatId,
   userProfile
 }) => {
@@ -256,8 +260,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button onClick={onOpenVideos} className="p-2 hover:bg-white/10 rounded-full transition-colors">
               <VideoIcon size={20} />
             </button>
+            <button 
+              onClick={onOpenCreativeStudio} 
+              className="p-2 bg-gradient-to-br from-purple-500 to-blue-500 text-white rounded-full hover:scale-110 transition-all shadow-lg shadow-purple-200 flex items-center justify-center"
+              title="استوديو وطن الإبداعي"
+            >
+              <Wand2 size={20} />
+            </button>
             <button onClick={onOpenSettings} className="p-2 hover:bg-white/10 rounded-full transition-colors">
               <SettingsIcon size={20} />
+            </button>
+            <button 
+              onClick={onOpenPremium} 
+              className="p-2 bg-yellow-400 text-white rounded-full hover:bg-yellow-500 transition-all shadow-[0_0_10px_rgba(250,204,21,0.5)] flex items-center justify-center"
+              title="المميزات الممتازة"
+            >
+              <Crown size={20} />
             </button>
             <button onClick={handleOpenSavedMessages} className="p-2 hover:bg-white/10 rounded-full transition-colors" title="الرسائل المحفوظة">
               <Star size={20} />

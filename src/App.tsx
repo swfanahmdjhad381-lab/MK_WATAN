@@ -9,6 +9,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { AdminPanel } from './components/AdminPanel';
 import { Settings } from './components/Settings';
 import { VideoList } from './components/VideoList';
+import { PremiumFeaturesList } from './components/PremiumFeaturesList';
+import { CreativeStudio } from './components/CreativeStudio';
 import { Chat, UserProfile, OperationType } from './types';
 import { handleFirestoreError } from './lib/firestore-utils';
 import { MessageSquare, Shield, Ban } from 'lucide-react';
@@ -21,6 +23,8 @@ export default function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showVideos, setShowVideos] = useState(false);
+  const [showPremium, setShowPremium] = useState(false);
+  const [showCreativeStudio, setShowCreativeStudio] = useState(false);
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
@@ -166,6 +170,8 @@ export default function App() {
             onOpenSettings={() => setShowSettings(true)}
             onOpenVideos={() => setShowVideos(true)}
             onOpenAdmin={() => setShowAdminPanel(true)}
+            onOpenPremium={() => setShowPremium(true)}
+            onOpenCreativeStudio={() => setShowCreativeStudio(true)}
             selectedChatId={selectedChat?.id}
             userProfile={userProfile}
           />
@@ -178,6 +184,7 @@ export default function App() {
               chat={selectedChat} 
               onBack={() => setSelectedChat(null)} 
               onSelectChat={setSelectedChat}
+              userProfile={userProfile}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full bg-[#f4f4f5] text-gray-400 p-8 text-center">
@@ -207,6 +214,17 @@ export default function App() {
 
         {showVideos && (
           <VideoList onClose={() => setShowVideos(false)} />
+        )}
+
+        {showPremium && (
+          <PremiumFeaturesList onClose={() => setShowPremium(false)} />
+        )}
+
+        {showCreativeStudio && userProfile && (
+          <CreativeStudio 
+            onClose={() => setShowCreativeStudio(false)} 
+            userProfile={userProfile}
+          />
         )}
       </div>
     </ErrorBoundary>
