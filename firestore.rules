@@ -122,7 +122,11 @@ service cloud.firestore {
              (!('videoPhotoURL' in data) || (data.videoPhotoURL is string && data.videoPhotoURL.size() < 1000)) &&
              (!('isBanned' in data) || data.isBanned is bool) &&
              (!('isMuted' in data) || data.isMuted is bool) &&
-             (!('isDeviceBanned' in data) || data.isDeviceBanned is bool);
+             (!('isDeviceBanned' in data) || data.isDeviceBanned is bool) &&
+             (!('ownerId' in data) || (data.ownerId is string && data.ownerId.size() < 100)) &&
+             (!('token' in data) || (data.token is string && data.token.size() < 100)) &&
+             (!('botFatherState' in data) || data.botFatherState == null || (data.botFatherState is string && data.botFatherState.size() < 50)) &&
+             (!('botFatherTempName' in data) || data.botFatherTempName == null || (data.botFatherTempName is string && data.botFatherTempName.size() < 100));
     }
 
     function isValidChat(data) {
@@ -142,7 +146,7 @@ service cloud.firestore {
 
     function isValidMessage(data) {
       return data.chatId is string &&
-             data.senderId == request.auth.uid &&
+             (data.senderId == request.auth.uid || (exists(/databases/$(database)/documents/users/$(data.senderId)) && get(/databases/$(database)/documents/users/$(data.senderId)).data.get('role', '') == 'bot')) &&
              data.text is string && data.text.size() >= 0 && data.text.size() < 5000 &&
              data.timestamp is timestamp &&
              data.type in ['text', 'image', 'file'] &&
@@ -171,10 +175,10 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) && 
+      allow create: if (isOwner(userId) || isAdmin() || request.resource.data.get('role', '') == 'bot') && isValidUser(request.resource.data) && 
                       (isBootstrapAdmin() || isAdmin() ||
-                       ((!('role' in request.resource.data) || request.resource.data.role == 'user') && 
-                        (!('isPremium' in request.resource.data) || request.resource.data.isPremium == false) &&
+                       ((!('role' in request.resource.data) || request.resource.data.role == 'user' || request.resource.data.role == 'bot') && 
+                        (!('isPremium' in request.resource.data) || request.resource.data.isPremium == false || (request.resource.data.role == 'bot' && request.resource.data.isPremium == true)) &&
                         (!('isBanned' in request.resource.data) || request.resource.data.isBanned == false) &&
                         (!('isMuted' in request.resource.data) || request.resource.data.isMuted == false)));
       allow update: if (isOwner(userId) && isValidUser(request.resource.data) && 
@@ -183,8 +187,9 @@ service cloud.firestore {
                           (!('isPremium' in request.resource.data) || request.resource.data.isPremium == resource.data.get('isPremium', false)) &&
                           (!('isBanned' in request.resource.data) || request.resource.data.isBanned == resource.data.get('isBanned', false)) &&
                           (!('isMuted' in request.resource.data) || request.resource.data.isMuted == resource.data.get('isMuted', false))))) || 
-                      isAdmin();
-      allow delete: if isAdmin();
+                      isAdmin() || 
+                      (resource.data.get('role', '') == 'bot' && resource.data.get('ownerId', '') == request.auth.uid && request.resource.data.get('role', '') == 'bot' && request.resource.data.get('ownerId', '') == request.auth.uid && isValidUser(request.resource.data));
+      allow delete: if isAdmin() || (resource.data.get('role', '') == 'bot' && resource.data.get('ownerId', '') == request.auth.uid);
 
       match /videos/{videoId} {
         allow read: if isAuthenticated() && !isBanned();
@@ -196,9 +201,9 @@ service cloud.firestore {
 
     match /usernames/{username} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (request.resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && (request.resource.data.uid == request.auth.uid || isAdmin() || (exists(/databases/$(database)/documents/users/$(request.resource.data.uid)) && get(/databases/$(database)/documents/users/$(request.resource.data.uid)).data.get('role', '') == 'bot'));
       allow update: if isAuthenticated() && (resource.data.get('uid', '') == request.auth.uid || isAdmin()) && (request.resource.data.uid == request.auth.uid || isAdmin());
-      allow delete: if isAuthenticated() && (resource.data.get('uid', '') == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.get('uid', '') == request.auth.uid || isAdmin() || (exists(/databases/$(database)/documents/users/$(resource.data.get('uid', ''))) && get(/databases/$(database)/documents/users/$(resource.data.get('uid', ''))).data.get('role', '') == 'bot' && get(/databases/$(database)/documents/users/$(resource.data.get('uid', ''))).data.get('ownerId', '') == request.auth.uid));
     }
 
     match /public_videos/{videoId} {

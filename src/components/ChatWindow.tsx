@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, updateDoc, doc, getDocs, where, getDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, updateDoc, doc, getDocs, where, getDoc, setDoc } from 'firebase/firestore';
 import { Chat, Message, OperationType, UserProfile, ChatPermissions } from '../types';
 import { handleFirestoreError } from '../lib/firestore-utils';
 import { Send, Paperclip, Smile, MoreVertical, Phone, Video, Star, Settings, ArrowRight, Pin, Reply, X, Copy } from 'lucide-react';
@@ -266,8 +266,117 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
         lastMessage: fileData ? (fileData.type === 'image' ? '📷 صورة' : fileData.type === 'sticker' ? '✨ ملصق' : '📁 ملف') : text,
         lastMessageTime: serverTimestamp()
       });
+
+      // Handle WatanFather Bot Logic
+      if (chat.memberIds.includes('watanfather_bot') && !fileData) {
+        handleBotFatherLogic(text, chat.id, auth.currentUser!.uid);
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `chats/${chat.id}/messages`);
+    }
+  };
+
+  const handleBotFatherLogic = async (text: string, chatId: string, userId: string) => {
+    const botUid = 'watanfather_bot';
+    const botName = 'وطن فاذر';
+    
+    try {
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.data() as any;
+      const botState = userData.botFatherState || null;
+      const botTempName = userData.botFatherTempName || '';
+
+      let replyText = '';
+      let newState = null;
+      let newTempName = botTempName;
+
+      if (text === '/start') {
+        replyText = 'مرحباً بك في وطن فاذر! 🤖\n\nأنا هنا لمساعدتك في إنشاء وإدارة البوتات الخاصة بك.\n\nالأوامر المتاحة:\n/newbot - إنشاء بوت جديد\n/mybots - عرض البوتات الخاصة بي\n/cancel - إلغاء العملية الحالية';
+        newState = null;
+      } else if (text === '/cancel') {
+        replyText = 'تم إلغاء العملية الحالية.';
+        newState = null;
+        newTempName = '';
+      } else if (text === '/newbot') {
+        replyText = 'حسناً، لنقم بإنشاء بوت جديد. ماذا تريد أن تسميه؟\n(أدخل اسم البوت، مثلاً: بوت الطقس)';
+        newState = 'awaiting_name';
+      } else if (text === '/mybots') {
+        const q = query(collection(db, 'users'), where('ownerId', '==', userId), where('role', '==', 'bot'));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          replyText = 'ليس لديك أي بوتات حالياً. استخدم /newbot لإنشاء واحد.';
+        } else {
+          replyText = 'بوتاتك:\n\n' + snap.docs.map(d => `🤖 ${d.data().displayName} (@${d.data().username})\nالتوكن: \`${d.data().token}\``).join('\n\n');
+        }
+        newState = null;
+      } else if (botState === 'awaiting_name') {
+        newTempName = text;
+        replyText = `ممتاز! اسم البوت هو "${text}".\nالآن، اختر معرفاً (username) للبوت.\nيجب أن ينتهي بكلمة "bot"، مثلاً: weather_bot أو TetrisBot.`;
+        newState = 'awaiting_username';
+      } else if (botState === 'awaiting_username') {
+        const username = text.toLowerCase().replace('@', '').replace(/[^a-z0-9_]/g, '');
+        if (!username.endsWith('bot')) {
+          replyText = 'عذراً، يجب أن ينتهي المعرف بكلمة "bot". حاول مرة أخرى:';
+          newState = 'awaiting_username';
+        } else {
+          const unRef = doc(db, 'usernames', username);
+          const unSnap = await getDoc(unRef);
+          if (unSnap.exists()) {
+            replyText = 'عذراً، هذا المعرف مستخدم بالفعل. اختر معرفاً آخر:';
+            newState = 'awaiting_username';
+          } else {
+            const token = 'wt_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            const botId = 'bot_' + Math.random().toString(36).substring(2, 15);
+            
+            await setDoc(doc(db, 'users', botId), {
+              uid: botId,
+              displayName: botTempName,
+              searchName: botTempName.toLowerCase(),
+              username: username,
+              photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(botTempName)}&background=24a1de&color=fff`,
+              email: `${username}@bot.internal`,
+              status: 'online',
+              role: 'bot',
+              ownerId: userId,
+              token: token,
+              createdAt: serverTimestamp()
+            });
+            await setDoc(unRef, { uid: botId });
+            
+            replyText = `تم إنشاء البوت بنجاح! 🎉\n\nالاسم: ${botTempName}\nالمعرف: @${username}\n\nإليك التوكن (Token) الخاص بالبوت:\n\`${token}\`\n\nاحتفظ بهذا التوكن سرياً ولا تشاركه مع أحد.`;
+            newState = null;
+            newTempName = '';
+          }
+        }
+      } else {
+        replyText = 'عذراً، لم أفهم هذا الأمر. استخدم /start لرؤية الأوامر المتاحة.';
+      }
+
+      await updateDoc(userRef, {
+        botFatherState: newState,
+        botFatherTempName: newTempName
+      });
+
+      setTimeout(async () => {
+        await addDoc(collection(db, 'chats', chatId, 'messages'), {
+          chatId: chatId,
+          senderId: botUid,
+          senderName: botName,
+          text: replyText,
+          timestamp: serverTimestamp(),
+          type: 'text',
+          reactions: {},
+          seenBy: [botUid]
+        });
+        
+        await updateDoc(doc(db, 'chats', chatId), {
+          lastMessage: replyText,
+          lastMessageTime: serverTimestamp()
+        });
+      }, 600);
+    } catch (error) {
+      console.error('BotFather error:', error);
     }
   };
 

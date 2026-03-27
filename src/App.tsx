@@ -40,6 +40,29 @@ export default function App() {
               throw e;
             });
             
+            // Ensure WatanFather exists
+            const botRef = doc(db, 'users', 'watanfather_bot');
+            const botSnap = await getDoc(botRef).catch(e => {
+              handleFirestoreError(e, OperationType.GET, botRef.path);
+              throw e;
+            });
+            if (!botSnap.exists()) {
+              await setDoc(botRef, {
+                uid: 'watanfather_bot',
+                displayName: 'وطن فاذر',
+                searchName: 'وطن فاذر',
+                username: 'watanfather',
+                photoURL: 'https://ui-avatars.com/api/?name=Watan+Father&background=24a1de&color=fff',
+                email: 'bot@watan.internal',
+                status: 'online',
+                role: 'bot',
+                isPremium: true,
+                bio: 'أنا بوت وطن فاذر. أساعدك في إنشاء وإدارة البوتات الخاصة بك.',
+                createdAt: serverTimestamp()
+              }).catch(e => handleFirestoreError(e, OperationType.WRITE, botRef.path));
+              await setDoc(doc(db, 'usernames', 'watanfather'), { uid: 'watanfather_bot' }).catch(e => handleFirestoreError(e, OperationType.WRITE, 'usernames/watanfather'));
+            }
+
             const profileData: Partial<UserProfile> = {
               uid: currentUser.uid,
               displayName: currentUser.displayName || 'Anonymous',
