@@ -2,6 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import admin from "firebase-admin";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { fileURLToPath } from "url";
 import firebaseConfig from "./firebase-applet-config.json" with { type: "json" };
 
@@ -17,7 +18,7 @@ if (!admin.apps.length) {
   });
 }
 
-const db = admin.firestore();
+const db = getFirestore(admin.app(), firebaseConfig.firestoreDatabaseId);
 const auth = admin.auth();
 
 async function startServer() {
@@ -100,7 +101,7 @@ async function startServer() {
         username: username.toLowerCase(),
         password: password,
         uid: userRecord.uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
 
       // 5. Create the user profile in Firestore
@@ -111,7 +112,7 @@ async function startServer() {
         email: `${username.toLowerCase()}@app.internal`,
         role: "user",
         isPremium: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         status: "offline",
       });
 
