@@ -45,16 +45,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       });
 
       const data = await response.json();
-      if (data.error) {
-        setGenError(data.error);
+      if (!response.ok || data.error) {
+        setGenError(`Error: ${data.error || response.statusText}`);
       } else {
         setGenSuccess(true);
         setGenUsername('');
         setGenPassword('');
         setGenDisplayName('');
       }
-    } catch (err) {
-      setGenError('فشل في إنشاء الحساب');
+    } catch (err: any) {
+      setGenError(`Catch Error: ${err.message || String(err)}`);
     } finally {
       setActionLoading(false);
     }
@@ -198,6 +198,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     if (!window.confirm('هل أنت متأكد من حذف هذا الحساب نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) return;
     setActionLoading(true);
     try {
+      // Call backend to delete from Auth and admin_accounts
+      const response = await fetch('/api/admin/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetUid: user.uid,
+          adminUid: auth.currentUser?.uid
+        }),
+      });
+      
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to delete account from server');
+      }
+
       // Delete user document
       await deleteDoc(doc(db, 'users', user.uid));
       // Delete username mapping
@@ -208,7 +223,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       setSelectedUser(null);
       alert('تم حذف الحساب بنجاح');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}`);
+      console.error('Delete error:', error);
+      alert('حدث خطأ أثناء حذف الحساب');
     } finally {
       setActionLoading(false);
     }

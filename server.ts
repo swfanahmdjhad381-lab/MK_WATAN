@@ -91,9 +91,10 @@ async function startServer() {
 
       // 3. Create a new user in Firebase Auth (or use a dummy UID)
       // We'll create a real user so they have a profile.
+      const sanitizedUsername = username.toLowerCase().replace(/[^a-z0-9]/g, '');
       const userRecord = await auth.createUser({
         displayName: displayName || username,
-        email: `${username.toLowerCase()}@app.internal`,
+        email: `${sanitizedUsername}@app.internal`,
       });
 
       // 4. Store the mapping
@@ -109,7 +110,7 @@ async function startServer() {
         uid: userRecord.uid,
         displayName: displayName || username,
         username: username.toLowerCase(),
-        email: `${username.toLowerCase()}@app.internal`,
+        email: `${sanitizedUsername}@app.internal`,
         role: "user",
         isPremium: false,
         createdAt: FieldValue.serverTimestamp(),
@@ -117,9 +118,42 @@ async function startServer() {
       });
 
       res.json({ success: true, uid: userRecord.uid });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Create account error:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
+  // API Route: Admin deletes an account
+  app.post("/api/admin/delete-account", async (req, res) => {
+    const { targetUid, adminUid } = req.body;
+
+    if (!targetUid || !adminUid) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    try {
+      // 1. Verify the requester is an admin
+      const adminSnap = await db.collection("users").doc(adminUid).get();
+      if (!adminSnap.exists || adminSnap.data()?.role !== "admin") {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // 2. Delete from Firebase Auth
+      try {
+        await auth.deleteUser(targetUid);
+      } catch (authError: any) {
+        console.warn(`Could not delete user ${targetUid} from Auth:`, authError.message);
+        // Continue deleting from Firestore even if Auth deletion fails (e.g., user not found)
+      }
+
+      // 3. Delete from admin_accounts
+      await db.collection("admin_accounts").doc(targetUid).delete();
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Delete account error:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
     }
   });
 
