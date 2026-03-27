@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../firebase';
+import firebaseConfig from '../../firebase-applet-config.json';
 import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, orderBy, limit, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { UserProfile, OperationType } from '../types';
 import { handleFirestoreError } from '../lib/firestore-utils';
@@ -41,27 +42,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         return;
       }
 
-      const response = await fetch('/api/admin/create-account', {
+      const sanitizedUsername = genUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const email = `${sanitizedUsername}@app.internal`;
+
+      // Use Firebase Auth REST API directly from the frontend
+      const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: genUsername,
+          email,
           password: genPassword,
-          displayName: genDisplayName,
-          adminUid: auth.currentUser?.uid
+          returnSecureToken: true
         }),
       });
 
       const data = await response.json();
       if (!response.ok || data.error) {
-        setGenError(`Error: ${data.error || response.statusText}`);
+        setGenError(`Error: ${data.error?.message || response.statusText}`);
       } else {
         // Create user profile in Firestore
-        const sanitizedUsername = genUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const email = `${sanitizedUsername}@app.internal`;
+        const uid = data.localId;
         
-        await setDoc(doc(db, 'users', data.uid), {
-          uid: data.uid,
+        await setDoc(doc(db, 'users', uid), {
+          uid: uid,
           displayName: genDisplayName || genUsername,
           username: genUsername.toLowerCase(),
           email: email,
@@ -73,7 +76,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
         // Create username mapping
         await setDoc(doc(db, 'usernames', genUsername.toLowerCase()), {
-          uid: data.uid
+          uid: uid
         });
 
         setGenSuccess(true);
@@ -226,20 +229,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     if (!window.confirm('هل أنت متأكد من حذف هذا الحساب نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) return;
     setActionLoading(true);
     try {
-      // Call backend to delete from Auth and admin_accounts
-      const response = await fetch('/api/admin/delete-account', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetUid: user.uid,
-          adminUid: auth.currentUser?.uid
-        }),
-      });
-      
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to delete account from server');
-      }
+      // Note: Without a backend, we cannot delete the user from Firebase Auth.
+      // However, deleting their Firestore documents effectively removes their access to the app.
 
       // Delete user document
       await deleteDoc(doc(db, 'users', user.uid));
