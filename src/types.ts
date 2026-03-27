@@ -23,6 +23,12 @@ export interface UserProfile {
   isMuted?: boolean;
   isDeviceBanned?: boolean;
   dataSaver?: boolean;
+  isBot?: boolean;
+  botOwnerId?: string;
+  botToken?: string;
+  botType?: 'general' | 'image_generator' | 'name_decorator' | 'image_editor' | 'channel_manager';
+  botDescription?: string;
+  botAbout?: string;
 }
 
 export interface Video {

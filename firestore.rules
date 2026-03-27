@@ -123,10 +123,16 @@ service cloud.firestore {
              (!('isBanned' in data) || data.isBanned is bool) &&
              (!('isMuted' in data) || data.isMuted is bool) &&
              (!('isDeviceBanned' in data) || data.isDeviceBanned is bool) &&
+             (!('isBot' in data) || data.isBot is bool) &&
+             (!('botType' in data) || (data.botType is string && data.botType.size() < 50)) &&
+             (!('botDescription' in data) || (data.botDescription is string && data.botDescription.size() < 1000)) &&
+             (!('botAbout' in data) || (data.botAbout is string && data.botAbout.size() < 1000)) &&
              (!('ownerId' in data) || (data.ownerId is string && data.ownerId.size() < 100)) &&
              (!('token' in data) || (data.token is string && data.token.size() < 100)) &&
+             (!('about' in data) || (data.about is string && data.about.size() < 1000)) &&
              (!('botFatherState' in data) || data.botFatherState == null || (data.botFatherState is string && data.botFatherState.size() < 50)) &&
-             (!('botFatherTempName' in data) || data.botFatherTempName == null || (data.botFatherTempName is string && data.botFatherTempName.size() < 100));
+             (!('botFatherTempName' in data) || data.botFatherTempName == null || (data.botFatherTempName is string && data.botFatherTempName.size() < 100)) &&
+             (!('botFatherTargetId' in data) || data.botFatherTargetId == null || (data.botFatherTargetId is string && data.botFatherTargetId.size() < 100));
     }
 
     function isValidChat(data) {

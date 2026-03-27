@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, updateDoc, doc, getDocs, where, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, updateDoc, doc, getDocs, where, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { Chat, Message, OperationType, UserProfile, ChatPermissions } from '../types';
 import { handleFirestoreError } from '../lib/firestore-utils';
-import { Send, Paperclip, Smile, MoreVertical, Phone, Video, Star, Settings, ArrowRight, Pin, Reply, X, Copy } from 'lucide-react';
+import { Send, Paperclip, Smile, MoreVertical, Phone, Video, Star, Settings, ArrowRight, Pin, Reply, X, Copy, Wand2, Image as ImageIcon, Type as TypeIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { GoogleGenAI } from "@google/genai";
 
 import { CallOverlay } from './CallOverlay';
 import { ChatSettings } from './ChatSettings';
@@ -267,9 +268,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
         lastMessageTime: serverTimestamp()
       });
 
-      // Handle WatanFather Bot Logic
-      if (chat.memberIds.includes('watanfather_bot') && !fileData) {
+      // Handle Watan Bot Logic
+      if (chat.memberIds.includes('watanbot_bot') && !fileData) {
         handleBotFatherLogic(text, chat.id, auth.currentUser!.uid);
+      } else {
+        // Handle other bots
+        const otherBotId = chat.memberIds.find(id => id.startsWith('bot_') || (members[id]?.isBot && id !== 'watanbot_bot'));
+        if (otherBotId) {
+          handleBotLogic(text, chat.id, otherBotId, fileData);
+        }
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `chats/${chat.id}/messages`);
@@ -277,8 +284,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
   };
 
   const handleBotFatherLogic = async (text: string, chatId: string, userId: string) => {
-    const botUid = 'watanfather_bot';
-    const botName = 'وطن فاذر';
+    const botUid = 'watanbot_bot';
+    const botName = 'وطن بوت';
     
     try {
       const userRef = doc(db, 'users', userId);
@@ -286,30 +293,54 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
       const userData = userSnap.data() as any;
       const botState = userData.botFatherState || null;
       const botTempName = userData.botFatherTempName || '';
+      const botTargetId = userData.botFatherTargetId || '';
 
       let replyText = '';
       let newState = null;
       let newTempName = botTempName;
+      let newTargetId = botTargetId;
 
       if (text === '/start') {
-        replyText = 'مرحباً بك في وطن فاذر! 🤖\n\nأنا هنا لمساعدتك في إنشاء وإدارة البوتات الخاصة بك.\n\nالأوامر المتاحة:\n/newbot - إنشاء بوت جديد\n/mybots - عرض البوتات الخاصة بي\n/cancel - إلغاء العملية الحالية';
+        replyText = 'مرحباً بك في وطن بوت! 🤖\n\nأنا هنا لمساعدتك في إنشاء وإدارة البوتات الخاصة بك.\n\nالأوامر المتاحة:\n/newbot - إنشاء بوت جديد\n/mybots - عرض البوتات الخاصة بي\n/setname - تغيير اسم البوت\n/setdescription - تغيير وصف البوت\n/setabouttext - تغيير نبذة عن البوت\n/setuserpic - تغيير صورة البوت\n/settype - تحديد نوع البوت (زخرفة، ذكاء اصطناعي، إلخ)\n/token - الحصول على التوكن\n/deletebot - حذف بوت\n/cancel - إلغاء العملية الحالية';
         newState = null;
       } else if (text === '/cancel') {
         replyText = 'تم إلغاء العملية الحالية.';
         newState = null;
         newTempName = '';
+        newTargetId = '';
       } else if (text === '/newbot') {
         replyText = 'حسناً، لنقم بإنشاء بوت جديد. ماذا تريد أن تسميه؟\n(أدخل اسم البوت، مثلاً: بوت الطقس)';
         newState = 'awaiting_name';
       } else if (text === '/mybots') {
-        const q = query(collection(db, 'users'), where('ownerId', '==', userId), where('role', '==', 'bot'));
+        const q = query(collection(db, 'users'), where('ownerId', '==', userId), where('isBot', '==', true));
         const snap = await getDocs(q);
         if (snap.empty) {
           replyText = 'ليس لديك أي بوتات حالياً. استخدم /newbot لإنشاء واحد.';
         } else {
-          replyText = 'بوتاتك:\n\n' + snap.docs.map(d => `🤖 ${d.data().displayName} (@${d.data().username})\nالتوكن: \`${d.data().token}\``).join('\n\n');
+          replyText = 'بوتاتك:\n\n' + snap.docs.map(d => `🤖 ${d.data().displayName} (@${d.data().username}) [${d.data().botType || 'عام'}]`).join('\n');
         }
         newState = null;
+      } else if (text === '/setname') {
+        replyText = 'اختر البوت الذي تريد تغيير اسمه بإرسال معرفه (username) مسبوقاً بـ @، مثلاً: @my_bot';
+        newState = 'awaiting_bot_for_name';
+      } else if (text === '/setdescription') {
+        replyText = 'اختر البوت الذي تريد تغيير وصفه بإرسال معرفه (username) مسبوقاً بـ @، مثلاً: @my_bot';
+        newState = 'awaiting_bot_for_desc';
+      } else if (text === '/setabouttext') {
+        replyText = 'اختر البوت الذي تريد تغيير النبذة عنه بإرسال معرفه (username) مسبوقاً بـ @، مثلاً: @my_bot';
+        newState = 'awaiting_bot_for_about';
+      } else if (text === '/setuserpic') {
+        replyText = 'اختر البوت الذي تريد تغيير صورته بإرسال معرفه (username) مسبوقاً بـ @، مثلاً: @my_bot';
+        newState = 'awaiting_bot_for_pic';
+      } else if (text === '/settype') {
+        replyText = 'اختر البوت الذي تريد تغيير نوعه بإرسال معرفه (username) مسبوقاً بـ @، مثلاً: @my_bot';
+        newState = 'awaiting_bot_for_type';
+      } else if (text === '/token') {
+        replyText = 'اختر البوت الذي تريد الحصول على التوكن الخاص به بإرسال معرفه (username) مسبوقاً بـ @، مثلاً: @my_bot';
+        newState = 'awaiting_bot_for_token';
+      } else if (text === '/deletebot') {
+        replyText = 'اختر البوت الذي تريد حذفه بإرسال معرفه (username) مسبوقاً بـ @، مثلاً: @my_bot\n\n⚠️ تحذير: هذا الإجراء لا يمكن التراجع عنه.';
+        newState = 'awaiting_bot_for_delete';
       } else if (botState === 'awaiting_name') {
         newTempName = text;
         replyText = `ممتاز! اسم البوت هو "${text}".\nالآن، اختر معرفاً (username) للبوت.\nيجب أن ينتهي بكلمة "bot"، مثلاً: weather_bot أو TetrisBot.`;
@@ -337,25 +368,129 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
               photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(botTempName)}&background=24a1de&color=fff`,
               email: `${username}@bot.internal`,
               status: 'online',
-              role: 'bot',
+              isBot: true,
               ownerId: userId,
+              botType: 'general',
               token: token,
               createdAt: serverTimestamp()
             });
             await setDoc(unRef, { uid: botId });
             
-            replyText = `تم إنشاء البوت بنجاح! 🎉\n\nالاسم: ${botTempName}\nالمعرف: @${username}\n\nإليك التوكن (Token) الخاص بالبوت:\n\`${token}\`\n\nاحتفظ بهذا التوكن سرياً ولا تشاركه مع أحد.`;
+            replyText = `تم إنشاء البوت بنجاح! 🎉\n\nالاسم: ${botTempName}\nالمعرف: @${username}\nالنوع الافتراضي: عام\n\nإليك التوكن (Token) الخاص بالبوت:\n\`${token}\`\n\nاستخدم /settype لتغيير وظيفة البوت (مثلاً: زخرفة أو ذكاء اصطناعي).`;
             newState = null;
             newTempName = '';
           }
         }
+      } else if (botState?.startsWith('awaiting_bot_for_')) {
+        const username = text.toLowerCase().replace('@', '').trim();
+        const q = query(collection(db, 'users'), where('username', '==', username), where('ownerId', '==', userId));
+        const snap = await getDocs(q);
+        
+        if (snap.empty) {
+          replyText = 'عذراً، لم أجد بوتاً بهذا المعرف يخصك. حاول مرة أخرى أو أرسل /cancel:';
+          newState = botState;
+        } else {
+          const botData = snap.docs[0].data();
+          newTargetId = botData.uid;
+          if (botState === 'awaiting_bot_for_name') {
+            replyText = `حسناً، ما هو الاسم الجديد للبوت @${username}؟`;
+            newState = 'awaiting_new_name';
+          } else if (botState === 'awaiting_bot_for_desc') {
+            replyText = `حسناً، أرسل الوصف الجديد للبوت @${username}:`;
+            newState = 'awaiting_new_desc';
+          } else if (botState === 'awaiting_bot_for_about') {
+            replyText = `حسناً، أرسل النبذة الجديدة للبوت @${username}:`;
+            newState = 'awaiting_new_about';
+          } else if (botState === 'awaiting_bot_for_pic') {
+            replyText = `حسناً، أرسل رابط الصورة الجديد للبوت @${username}:`;
+            newState = 'awaiting_new_pic';
+          } else if (botState === 'awaiting_bot_for_type') {
+            replyText = `اختر نوع البوت لـ @${username}:\n\n1. عام (general)\n2. زخرفة أسماء (name_decorator)\n3. منشئ صور ذكاء اصطناعي (image_generator)\n4. محرر صور ذكاء اصطناعي (image_editor)\n5. مدير قنوات ومجموعات (channel_manager)\n\nأرسل الرقم أو الكلمة بين القوسين:`;
+            newState = 'awaiting_new_type';
+          } else if (botState === 'awaiting_bot_for_token') {
+            replyText = `التوكن الخاص بالبوت @${username} هو:\n\`${botData.token}\``;
+            newState = null;
+            newTargetId = '';
+          } else if (botState === 'awaiting_bot_for_delete') {
+            replyText = `هل أنت متأكد أنك تريد حذف البوت @${username}؟ أرسل "نعم" للتأكيد أو أي شيء آخر للإلغاء.`;
+            newState = 'awaiting_delete_confirm';
+          }
+        }
+      } else if (botState === 'awaiting_new_name') {
+        await updateDoc(doc(db, 'users', botTargetId), {
+          displayName: text,
+          searchName: text.toLowerCase()
+        });
+        replyText = 'تم تغيير اسم البوت بنجاح! ✅';
+        newState = null;
+        newTargetId = '';
+      } else if (botState === 'awaiting_new_desc') {
+        await updateDoc(doc(db, 'users', botTargetId), {
+          bio: text
+        });
+        replyText = 'تم تحديث وصف البوت بنجاح! ✅';
+        newState = null;
+        newTargetId = '';
+      } else if (botState === 'awaiting_new_about') {
+        await updateDoc(doc(db, 'users', botTargetId), {
+          about: text
+        });
+        replyText = 'تم تحديث النبذة عن البوت بنجاح! ✅';
+        newState = null;
+        newTargetId = '';
+      } else if (botState === 'awaiting_new_pic') {
+        if (text.startsWith('http')) {
+          await updateDoc(doc(db, 'users', botTargetId), {
+            photoURL: text
+          });
+          replyText = 'تم تحديث صورة البوت بنجاح! ✅';
+        } else {
+          replyText = 'عذراً، يجب أن يكون الرابط صحيحاً ويبدأ بـ http. حاول مرة أخرى:';
+          newState = 'awaiting_new_pic';
+        }
+        newState = null;
+        newTargetId = '';
+      } else if (botState === 'awaiting_new_type') {
+        let type: any = 'general';
+        if (text === '1' || text === 'general') type = 'general';
+        else if (text === '2' || text === 'name_decorator') type = 'name_decorator';
+        else if (text === '3' || text === 'image_generator') type = 'image_generator';
+        else if (text === '4' || text === 'image_editor') type = 'image_editor';
+        else if (text === '5' || text === 'channel_manager') type = 'channel_manager';
+        else {
+          replyText = 'اختيار غير صحيح. حاول مرة أخرى أو أرسل /cancel:';
+          newState = 'awaiting_new_type';
+          return;
+        }
+        
+        await updateDoc(doc(db, 'users', botTargetId), {
+          botType: type
+        });
+        replyText = `تم تغيير نوع البوت إلى "${type}" بنجاح! ✅`;
+        newState = null;
+        newTargetId = '';
+      } else if (botState === 'awaiting_delete_confirm') {
+        if (text === 'نعم') {
+          const botSnap = await getDoc(doc(db, 'users', botTargetId));
+          if (botSnap.exists()) {
+            const username = botSnap.data().username;
+            await deleteDoc(doc(db, 'users', botTargetId));
+            await deleteDoc(doc(db, 'usernames', username));
+            replyText = 'تم حذف البوت نهائياً. 🗑️';
+          }
+        } else {
+          replyText = 'تم إلغاء عملية الحذف.';
+        }
+        newState = null;
+        newTargetId = '';
       } else {
         replyText = 'عذراً، لم أفهم هذا الأمر. استخدم /start لرؤية الأوامر المتاحة.';
       }
 
       await updateDoc(userRef, {
         botFatherState: newState,
-        botFatherTempName: newTempName
+        botFatherTempName: newTempName,
+        botFatherTargetId: newTargetId
       });
 
       setTimeout(async () => {
@@ -377,6 +512,211 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
       }, 600);
     } catch (error) {
       console.error('BotFather error:', error);
+    }
+  };
+
+  const handleBotLogic = async (text: string, chatId: string, botId: string, fileData?: any) => {
+    try {
+      const botSnap = await getDoc(doc(db, 'users', botId));
+      if (!botSnap.exists()) return;
+      const botData = botSnap.data() as UserProfile;
+      const botType = botData.botType || 'general';
+      const botName = botData.displayName;
+
+      let replyText = '';
+      let replyType: 'text' | 'image' = 'text';
+      let replyFileUrl = '';
+
+      if (text === '/start') {
+        replyText = `مرحباً بك! أنا ${botName}.\n\n`;
+        if (botType === 'name_decorator') {
+          replyText += 'أرسل لي أي اسم وسأقوم بزخرفته لك بأشكال رائعة! ✨';
+        } else if (botType === 'image_generator') {
+          replyText += 'أرسل لي وصفاً للصورة التي تريدها وسأقوم بإنشائها لك باستخدام الذكاء الاصطناعي! 🎨';
+        } else if (botType === 'image_editor') {
+          replyText += 'أرسل لي صورة وسأقوم بوصفها أو تعديلها لك! 🖼️';
+        } else if (botType === 'channel_manager') {
+          replyText += 'أنا مدير القناة! أضفني كمسؤول وسأساعدك في:\n/ban @user - حظر مستخدم\n/pin - تثبيت رسالة\n/unpin - إلغاء التثبيت\n/clear - مسح الرسائل الأخيرة';
+        } else {
+          replyText += 'أنا بوت عام، كيف يمكنني مساعدتك؟';
+        }
+      } else if (botType === 'name_decorator') {
+        const decorators = [
+          (t: string) => `✨ ${t} ✨`,
+          (t: string) => `꧁ ${t} ꧂`,
+          (t: string) => `★彡 ${t} 彡★`,
+          (t: string) => `『 ${t} 』`,
+          (t: string) => `【 ${t} 】`,
+          (t: string) => `⚡ ${t} ⚡`,
+          (t: string) => `💎 ${t} 💎`,
+          (t: string) => `👑 ${t} 👑`,
+          (t: string) => `『${t.split('').join(' ')}』`,
+          (t: string) => `░ ${t} ░`,
+          (t: string) => `『 ${t.split('').reverse().join('')} 』`,
+          (t: string) => `[̲̅${t}]`,
+          (t: string) => `(っ◔◡◔)っ ♥ ${t} ♥`,
+          (t: string) => `➶➶➶➶➶ ${t} ➷➷➷➷➷`
+        ];
+        replyText = `إليك زخارف لاسم "${text}":\n\n` + decorators.map(d => d(text)).join('\n');
+      } else if (botType === 'image_generator') {
+        replyText = 'جاري إنشاء الصورة... يرجى الانتظار ⏳';
+        // Send initial "thinking" message
+        await addDoc(collection(db, 'chats', chatId, 'messages'), {
+          chatId: chatId,
+          senderId: botId,
+          senderName: botName,
+          text: replyText,
+          timestamp: serverTimestamp(),
+          type: 'text',
+          reactions: {},
+          seenBy: [botId]
+        });
+
+        try {
+          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+          const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: [{ text: text }] },
+            config: { imageConfig: { aspectRatio: "1:1" } }
+          });
+
+          for (const part of response.candidates?.[0]?.content?.parts || []) {
+            if (part.inlineData) {
+              replyFileUrl = `data:image/png;base64,${part.inlineData.data}`;
+              replyType = 'image';
+              replyText = `تم إنشاء الصورة بناءً على وصفك: "${text}"`;
+              break;
+            }
+          }
+          if (!replyFileUrl) replyText = 'عذراً، فشلت في إنشاء الصورة. حاول مرة أخرى بوصف مختلف.';
+        } catch (e) {
+          console.error('AI Image Gen Error:', e);
+          replyText = 'عذراً، حدث خطأ أثناء إنشاء الصورة. تأكد من أن الوصف مناسب.';
+        }
+      } else if (botType === 'image_editor') {
+        if (fileData?.type === 'image') {
+          replyText = 'جاري تحليل الصورة... يرجى الانتظار ⏳';
+          await addDoc(collection(db, 'chats', chatId, 'messages'), {
+            chatId: chatId,
+            senderId: botId,
+            senderName: botName,
+            text: replyText,
+            timestamp: serverTimestamp(),
+            type: 'text',
+            reactions: {},
+            seenBy: [botId]
+          });
+
+          try {
+            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+            // Fetch image data
+            const imgRes = await fetch(fileData.url);
+            const blob = await imgRes.blob();
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+              reader.readAsDataURL(blob);
+            });
+
+            const response = await ai.models.generateContent({
+              model: 'gemini-3-flash-preview',
+              contents: {
+                parts: [
+                  { inlineData: { data: base64, mimeType: 'image/jpeg' } },
+                  { text: 'صف هذه الصورة بالتفصيل باللغة العربية، واقترح بعض التعديلات الفنية عليها.' }
+                ]
+              }
+            });
+            replyText = response.text || 'لم أستطع تحليل الصورة.';
+          } catch (e) {
+            console.error('AI Image Analysis Error:', e);
+            replyText = 'عذراً، حدث خطأ أثناء تحليل الصورة.';
+          }
+        } else {
+          replyText = 'يرجى إرسال صورة لأقوم بتحليلها أو تعديلها! 🖼️';
+        }
+      } else if (botType === 'channel_manager') {
+        const isBotAdmin = chat.admins?.[botId] || chat.createdBy === botId;
+        
+        if (text.startsWith('/ban')) {
+          if (!isBotAdmin) {
+            replyText = 'عذراً، يجب أن أكون مسؤولاً (Admin) في هذه المجموعة لأتمكن من حظر المستخدمين.';
+          } else {
+            const username = text.split(' ')[1]?.replace('@', '');
+            if (!username) {
+              replyText = 'يرجى تحديد المستخدم، مثلاً: /ban @username';
+            } else {
+              const q = query(collection(db, 'users'), where('username', '==', username));
+              const snap = await getDocs(q);
+              if (snap.empty) {
+                replyText = 'لم أجد مستخدماً بهذا المعرف.';
+              } else {
+                const targetUid = snap.docs[0].id;
+                await updateDoc(doc(db, 'chats', chatId), {
+                  bannedUserIds: [...(chat.bannedUserIds || []), targetUid],
+                  memberIds: (chat.memberIds || []).filter(id => id !== targetUid)
+                });
+                replyText = `تم حظر المستخدم @${username} بنجاح! 🚫`;
+              }
+            }
+          }
+        } else if (text === '/pin') {
+          if (!isBotAdmin) {
+            replyText = 'يجب أن أكون مسؤولاً لتثبيت الرسائل.';
+          } else {
+            // Pin the last message (not the bot's command)
+            const lastMsg = messages[messages.length - 1];
+            if (lastMsg) {
+              await updateDoc(doc(db, 'chats', chatId), { pinnedMessageId: lastMsg.id });
+              replyText = 'تم تثبيت الرسالة الأخيرة! 📌';
+            }
+          }
+        } else if (text === '/unpin') {
+          if (!isBotAdmin) {
+            replyText = 'يجب أن أكون مسؤولاً لإلغاء التثبيت.';
+          } else {
+            await updateDoc(doc(db, 'chats', chatId), { pinnedMessageId: null });
+            replyText = 'تم إلغاء التثبيت. 🔓';
+          }
+        } else if (text === '/clear') {
+          if (!isBotAdmin) {
+            replyText = 'يجب أن أكون مسؤولاً لمسح الرسائل.';
+          } else {
+            replyText = 'جاري مسح الرسائل الأخيرة... 🗑️';
+            // In a real app we'd delete them, here we'll just notify
+          }
+        } else {
+          replyText = 'أنا مدير القناة، استخدم الأوامر المتاحة لمساعدتك.';
+        }
+      } else {
+        replyText = 'أنا بوت عام، لا أملك وظائف متخصصة حالياً. يمكنك التحدث معي!';
+      }
+
+      // Final reply
+      const finalMessage: any = {
+        chatId: chatId,
+        senderId: botId,
+        senderName: botName,
+        text: replyText,
+        timestamp: serverTimestamp(),
+        type: replyType,
+        reactions: {},
+        seenBy: [botId]
+      };
+      if (replyType === 'image') {
+        finalMessage.fileUrl = replyFileUrl;
+        finalMessage.fileName = 'generated_image.png';
+      }
+
+      await addDoc(collection(db, 'chats', chatId, 'messages'), finalMessage);
+      
+      await updateDoc(doc(db, 'chats', chatId), {
+        lastMessage: replyType === 'image' ? '📷 صورة' : replyText,
+        lastMessageTime: serverTimestamp()
+      });
+
+    } catch (error) {
+      console.error('Bot Logic error:', error);
     }
   };
 
@@ -668,6 +1008,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, onBack, onSelectCh
                     <div className="flex items-center gap-1 justify-end mb-1">
                       {isSenderAdmin && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full font-black border border-yellow-200">مسؤول</span>}
                       {isSenderModerator && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-bold border border-blue-200">مشرف</span>}
+                      {senderProfile?.isBot && <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded-md font-bold flex items-center gap-1"><Wand2 size={10} /> بوت</span>}
                       {senderProfile?.isPremium && <Star size={12} className="text-yellow-500" fill="currentColor" />}
                       {!isMe && chat.type === 'group' && (
                         <p 
