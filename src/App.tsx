@@ -25,63 +25,68 @@ export default function App() {
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+
       if (currentUser) {
-        try {
-          const userRef = doc(db, 'users', currentUser.uid);
-          
-          // Initial check/create
-          const userSnap = await getDoc(userRef).catch(e => {
-            handleFirestoreError(e, OperationType.GET, userRef.path);
-            throw e;
-          });
-          
-          const profileData: Partial<UserProfile> = {
-            uid: currentUser.uid,
-            displayName: currentUser.displayName || 'Anonymous',
-            searchName: (currentUser.displayName || 'Anonymous').toLowerCase(),
-            photoURL: currentUser.photoURL || '',
-            email: currentUser.email || '',
-            status: 'online',
-            lastSeen: new Date().toISOString()
-          };
-
-          if (!userSnap.exists()) {
-            const defaultUsername = `user_${currentUser.uid.substring(0, 5)}`.toLowerCase();
-            const isAdmin = currentUser.email === 'sjdekhddjsaeb@gmail.com';
-            const newProfile = {
-              ...profileData,
-              username: defaultUsername,
-              role: isAdmin ? 'admin' : 'user',
-              isPremium: isAdmin,
-              bio: '',
-              phoneNumber: '',
-              twoStepEnabled: false,
-              createdAt: serverTimestamp()
+        (async () => {
+          try {
+            const userRef = doc(db, 'users', currentUser.uid);
+            
+            // Initial check/create
+            const userSnap = await getDoc(userRef).catch(e => {
+              handleFirestoreError(e, OperationType.GET, userRef.path);
+              throw e;
+            });
+            
+            const profileData: Partial<UserProfile> = {
+              uid: currentUser.uid,
+              displayName: currentUser.displayName || 'Anonymous',
+              searchName: (currentUser.displayName || 'Anonymous').toLowerCase(),
+              photoURL: currentUser.photoURL || '',
+              email: currentUser.email || '',
+              status: 'online',
+              lastSeen: new Date().toISOString()
             };
-            await setDoc(userRef, newProfile).catch(e => handleFirestoreError(e, OperationType.WRITE, userRef.path));
-            await setDoc(doc(db, 'usernames', defaultUsername), { uid: currentUser.uid }).catch(e => handleFirestoreError(e, OperationType.WRITE, `usernames/${defaultUsername}`));
-          } else {
-            if (currentUser.email === 'sjdekhddjsaeb@gmail.com' && userSnap.data()?.role !== 'admin') {
-              await setDoc(userRef, { role: 'admin', isPremium: true }, { merge: true }).catch(e => handleFirestoreError(e, OperationType.WRITE, userRef.path));
+
+            if (!userSnap.exists()) {
+              const defaultUsername = `user_${currentUser.uid.substring(0, 5)}`.toLowerCase();
+              const isAdmin = currentUser.email === 'sjdekhddjsaeb@gmail.com';
+              const newProfile = {
+                ...profileData,
+                username: defaultUsername,
+                role: isAdmin ? 'admin' : 'user',
+                isPremium: isAdmin,
+                bio: '',
+                phoneNumber: '',
+                twoStepEnabled: false,
+                createdAt: serverTimestamp()
+              };
+              await setDoc(userRef, newProfile).catch(e => handleFirestoreError(e, OperationType.WRITE, userRef.path));
+              await setDoc(doc(db, 'usernames', defaultUsername), { uid: currentUser.uid }).catch(e => handleFirestoreError(e, OperationType.WRITE, `usernames/${defaultUsername}`));
+            } else {
+              if (currentUser.email === 'sjdekhddjsaeb@gmail.com' && userSnap.data()?.role !== 'admin') {
+                await setDoc(userRef, { role: 'admin', isPremium: true }, { merge: true }).catch(e => handleFirestoreError(e, OperationType.WRITE, userRef.path));
+              }
+              await setDoc(userRef, profileData, { merge: true }).catch(e => handleFirestoreError(e, OperationType.WRITE, userRef.path));
             }
-            await setDoc(userRef, profileData, { merge: true }).catch(e => handleFirestoreError(e, OperationType.WRITE, userRef.path));
+
+            // Listen for profile changes
+            if (unsubscribeProfile) unsubscribeProfile();
+            unsubscribeProfile = onSnapshot(userRef, (doc) => {
+              if (doc.exists()) {
+                setUserProfile(doc.data() as UserProfile);
+              }
+            }, (error) => {
+              handleFirestoreError(error, OperationType.GET, userRef.path);
+            });
+
+          } catch (error) {
+            console.error('Profile sync error:', error);
+            // Don't block the app if profile sync fails, but maybe show a warning
           }
-
-          // Listen for profile changes
-          if (unsubscribeProfile) unsubscribeProfile();
-          unsubscribeProfile = onSnapshot(userRef, (doc) => {
-            if (doc.exists()) {
-              setUserProfile(doc.data() as UserProfile);
-            }
-          }, (error) => {
-            handleFirestoreError(error, OperationType.GET, userRef.path);
-          });
-
-        } catch (error) {
-          console.error('Profile sync error:', error);
-          // Don't block the app if profile sync fails, but maybe show a warning
-        }
+        })();
       } else {
         if (unsubscribeProfile) {
           unsubscribeProfile();
@@ -89,8 +94,6 @@ export default function App() {
         }
         setUserProfile(null);
       }
-      setUser(currentUser);
-      setLoading(false);
     });
 
     return () => {

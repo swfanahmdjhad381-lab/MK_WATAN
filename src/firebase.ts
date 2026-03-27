@@ -11,24 +11,7 @@ export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
 export const loginWithGoogle = async () => {
-  const result = await signInWithPopup(auth, googleProvider);
-  const user = result.user;
-  
-  const userRef = doc(db, 'users', user.uid);
-  const userSnap = await getDoc(userRef);
-  
-  if (!userSnap.exists()) {
-    await setDoc(userRef, {
-      uid: user.uid,
-      displayName: user.displayName || 'مستخدم جديد',
-      email: user.email,
-      photoURL: user.photoURL || '',
-      role: 'user',
-      isPremium: false,
-      createdAt: serverTimestamp(),
-    });
-  }
-  return result;
+  return await signInWithPopup(auth, googleProvider);
 };
 
 export const loginWithUsername = async (username, password) => {
