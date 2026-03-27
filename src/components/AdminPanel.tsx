@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../firebase';
-import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, orderBy, limit, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { UserProfile, OperationType } from '../types';
 import { handleFirestoreError } from '../lib/firestore-utils';
 import { X, Shield, Search, Ban, MicOff, Trash2, User, Check, AlertTriangle, Smartphone, Star } from 'lucide-react';
@@ -33,6 +33,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     setActionLoading(true);
 
     try {
+      // Check if username already exists
+      const usernameDoc = await getDoc(doc(db, 'usernames', genUsername.toLowerCase()));
+      if (usernameDoc.exists()) {
+        setGenError('اسم المستخدم موجود بالفعل');
+        setActionLoading(false);
+        return;
+      }
+
       const response = await fetch('/api/admin/create-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -48,6 +56,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       if (!response.ok || data.error) {
         setGenError(`Error: ${data.error || response.statusText}`);
       } else {
+        // Create user profile in Firestore
+        const sanitizedUsername = genUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const email = `${sanitizedUsername}@app.internal`;
+        
+        await setDoc(doc(db, 'users', data.uid), {
+          uid: data.uid,
+          displayName: genDisplayName || genUsername,
+          username: genUsername.toLowerCase(),
+          email: email,
+          role: "user",
+          isPremium: false,
+          createdAt: serverTimestamp(),
+          status: "offline",
+        });
+
+        // Create username mapping
+        await setDoc(doc(db, 'usernames', genUsername.toLowerCase()), {
+          uid: data.uid
+        });
+
         setGenSuccess(true);
         setGenUsername('');
         setGenPassword('');

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, signInWithCustomToken } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -32,18 +32,16 @@ export const loginWithGoogle = async () => {
 };
 
 export const loginWithUsername = async (username, password) => {
-  const response = await fetch('/api/auth/login-username', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  });
-
-  const data = await response.json();
-  if (data.error) {
-    throw new Error(data.error);
+  const sanitizedUsername = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const email = `${sanitizedUsername}@app.internal`;
+  try {
+    return await signInWithEmailAndPassword(auth, email, password);
+  } catch (error: any) {
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+      throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
+    }
+    throw error;
   }
-
-  return await signInWithCustomToken(auth, data.token);
 };
 
 export const logout = () => signOut(auth);
